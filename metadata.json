@@ -1,0 +1,6 @@
+{
+  "name": "象棋麻將",
+  "description": "經典傳統象棋麻將模擬器，支援32子、56子與64子多種遊戲模式，搭置智慧AI與視覺化台數計算算分面版。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
