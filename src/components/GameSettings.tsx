@@ -185,7 +185,7 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
 
         {/* Footer info label */}
         <p className="text-[10px] text-white/30 text-center mt-6">
-          象棋麻將單人演練系統 © 2026. Powered by Gemini & Antigravity
+          象棋麻將單人演練系統 © 2026
         </p>
 
       </div>
