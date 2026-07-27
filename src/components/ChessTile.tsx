@@ -6,7 +6,7 @@ interface ChessTileProps {
   tile: Tile;
   size?: 'xs' | 'sm' | 'hand' | 'md' | 'lg' | 'xl';
   isFaceDown?: boolean;
-  /** Hand tile picked for discard: keeps its normal face, adds a blue glow ring + gentle bounce. */
+  /** Hand tile picked for discard: keeps its normal face, adds a yellow glow ring + gentle bounce. */
   isSelected?: boolean;
   isClickable?: boolean;
   /** Exposed meld display: tile renders at 90% with a glowing halo filling the remaining 10%. */
@@ -55,7 +55,7 @@ export const ChessTile: React.FC<ChessTileProps> = ({
       className={`
         w-full h-full relative rounded-full flex items-center justify-center select-none
         border-2 bg-[#fdfcf0] border-[#d1d5db] transition-shadow
-        ${isSelected ? 'ring-4 ring-blue-400 shadow-[0_0_14px_4px_rgba(59,130,246,0.75)]' : ''}
+        ${isSelected ? 'ring-4 ring-yellow-400 shadow-[0_0_14px_4px_rgba(250,204,21,0.75)]' : ''}
       `}
     >
       <div className="absolute inset-[8%] border border-red-950/50 rounded-full pointer-events-none" />

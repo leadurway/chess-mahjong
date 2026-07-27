@@ -18,11 +18,13 @@ import {
 import { RuleGuide } from './RuleGuide';
 import { WinModal } from './WinModal';
 import liangLogo from '../assets/liang-logo.png';
+import { loadPlayerProfile, savePlayerProfile, calculatePayout, STARTING_SCORE } from '../utils/playerProfile';
 
 interface GameScreenProps {
   mode: GameMode;
   difficulty: Difficulty;
   playerIsBanker: boolean;
+  playerName: string;
   onExit: () => void;
 }
 
@@ -44,12 +46,31 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   mode,
   difficulty,
   playerIsBanker,
+  playerName,
   onExit,
 }) => {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [showRules, setShowRules] = useState<boolean>(false);
   const [showLog, setShowLog] = useState<boolean>(false);
+  const [confirmExit, setConfirmExit] = useState<boolean>(false);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const confirmExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleExitClick = () => {
+    if (confirmExit) {
+      if (confirmExitTimerRef.current) clearTimeout(confirmExitTimerRef.current);
+      onExit();
+      return;
+    }
+    setConfirmExit(true);
+    confirmExitTimerRef.current = setTimeout(() => setConfirmExit(false), 3000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (confirmExitTimerRef.current) clearTimeout(confirmExitTimerRef.current);
+    };
+  }, []);
 
   // Core Game State
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -64,6 +85,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
     const playerHand = wall.splice(0, playerHandCount);
     const aiHand = wall.splice(0, aiHandCount);
+    const startingScore = loadPlayerProfile().score;
 
     return {
       mode,
@@ -76,14 +98,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         hand: playerHand,
         melds: [],
         discards: [],
-        score: 0,
+        score: startingScore,
         isBanker: playerIsFirst,
       },
       ai: {
         hand: aiHand,
         melds: [],
         discards: [],
-        score: 0,
+        score: STARTING_SCORE,
         isBanker: !playerIsFirst,
       },
       turn: playerIsFirst ? 'player' : 'ai',
@@ -107,6 +129,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [gameState.logs, showLog]);
+
+  // Persist the player's running score (chip stack) so it carries over between sessions.
+  useEffect(() => {
+    savePlayerProfile({ name: playerName, score: gameState.player.score });
+  }, [playerName, gameState.player.score]);
 
   // AI trigger
   useEffect(() => {
@@ -583,6 +610,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const isFirstMove = gameState.player.discards.length === 0 && gameState.ai.discards.length === 0;
     const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, isSelfDraw, isFirstMove, winnerState.isBanker);
     const totalFans = fansCalculated.reduce((sum, f) => sum + f.value, 0);
+    const payout = calculatePayout(totalFans);
     const winnerAllTiles = [...finalConcealedHand, ...winnerState.melds.flatMap(m => m.tiles)];
 
     setGameState(prev => {
@@ -593,9 +621,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         ...prev,
         wall: updatedWall,
         phase: 'gameOver',
-        player: { ...prev.player, score: prev.player.score + (isPlayer ? totalFans : -totalFans) },
-        ai: { ...prev.ai, score: prev.ai.score + (isPlayer ? -totalFans : totalFans) },
-        logs: [...prev.logs, `🎉 ${isPlayer ? '玩家' : '對手 AI'} 宣告胡牌 (${isSelfDraw ? '自摸' : '榮胡'})！共 ${totalFans} 台！`],
+        player: { ...prev.player, score: prev.player.score + (isPlayer ? payout : -payout) },
+        ai: { ...prev.ai, score: prev.ai.score + (isPlayer ? -payout : payout) },
+        logs: [...prev.logs, `🎉 ${isPlayer ? '玩家' : '對手 AI'} 宣告胡牌 (${isSelfDraw ? '自摸' : '榮胡'})！共 ${totalFans} 台，${isPlayer ? '贏' : '輸'} ${payout} 分！`],
         winInfo: {
           winner, winningTile, isSelfDraw, fans: fansCalculated, totalFans,
           handSnapshot: finalConcealedHand, meldsSnapshot: winnerState.melds,
@@ -672,10 +700,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     : sortHandForDisplay(restOfPlayerHand);
 
   const renderMeldGroup = (meld: Meld, keyPrefix: string, mIdx: number) => (
-    <div key={`${keyPrefix}_m_${mIdx}`} className="flex gap-1 shrink-0 relative pt-2">
-      <span className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-stone-950 text-[8px] font-black px-1 rounded shadow-sm z-10">
-        {meld.type === 'chow' ? '吃' : meld.type === 'pong' ? '碰' : '槓'}
-      </span>
+    <div key={`${keyPrefix}_m_${mIdx}`} className="flex gap-1 shrink-0">
       {getMeldDisplayTiles(meld).map(({ tile, isTrigger }, tIdx) => (
         <ChessTile
           key={`${keyPrefix}_mt_${mIdx}_${tIdx}`}
@@ -687,6 +712,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     </div>
   );
 
+  // Fixed-width slot frame for the hand+meld row: sized for the dealer's opening hand count
+  // (5 for 32-tile, 8 for 56/64-tile — the maximum concealed+exposed tile count in play at
+  // once), so the frame itself never resizes; a newly drawn tile just fills the next empty
+  // slot on the right instead of the whole row re-centering.
+  const HAND_TILE_PX = 44;
+  const HAND_GAP_PX = 4;
+  const handSlotCount = gameState.mode === 32 ? 5 : 8;
+  const handRowWidthPx = handSlotCount * HAND_TILE_PX + (handSlotCount - 1) * HAND_GAP_PX;
+
   return (
     <div className="h-[100dvh] flex flex-col bg-[#064e3b] text-white overflow-hidden font-sans antialiased">
 
@@ -697,8 +731,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       >
         <div className="flex items-center gap-1.5 justify-self-start">
           <button
-            onClick={onExit}
-            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition"
+            onClick={handleExitClick}
+            className={`p-2 rounded-xl transition ${
+              confirmExit
+                ? 'bg-red-600 text-white shadow-[0_0_12px_3px_rgba(220,38,38,0.6)] animate-pulse'
+                : 'text-white/70 hover:text-white hover:bg-white/10'
+            }`}
           >
             <LogOut size={18} className="rotate-180" />
           </button>
@@ -746,15 +784,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               👑坐莊{gameState.dealerStreak > 1 ? `×${gameState.dealerStreak}` : ''}
             </span>
           )}
-          <span className={`text-base font-black font-mono ${gameState.ai.score >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {gameState.ai.score >= 0 ? '+' : ''}{gameState.ai.score}
+          <span className={`text-base font-black font-mono ${gameState.ai.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {gameState.ai.score.toLocaleString()}
           </span>
         </div>
       </div>
 
-      {/* ── ZONE B: AI HAND + MELDS (newest meld → older melds → hand, left to right, centered) ── */}
+      {/* ── ZONE B: AI HAND + MELDS (fixed-width slot frame, centered; fills left-to-right) ── */}
       <div className="shrink-0 w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10 flex justify-center overflow-x-auto">
-        <div className="flex gap-1 items-center shrink-0">
+        <div className="flex gap-1 items-center shrink-0" style={{ width: `${handRowWidthPx}px` }}>
           {[...gameState.ai.melds].reverse().map((meld, idx) =>
             renderMeldGroup(meld, 'ai', gameState.ai.melds.length - 1 - idx)
           )}
@@ -765,7 +803,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       </div>
 
       {/* ── ZONE C: AI DISCARDS ── */}
-      <div className="flex-1 min-h-0 w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto">
+      <div className="flex-1 min-h-11 w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto">
         <div className="flex flex-wrap gap-1 content-start">
           {gameState.ai.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'ai' && gameState.lastDiscard?.id === tile.id;
@@ -780,7 +818,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       </div>
 
       {/* ── ZONE D: PLAYER DISCARDS ── */}
-      <div className="flex-1 min-h-0 w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto">
+      <div className="flex-1 min-h-11 w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto">
         <div className="flex flex-wrap gap-1 content-start">
           {gameState.player.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'player' && gameState.lastDiscard?.id === tile.id;
@@ -794,9 +832,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         </div>
       </div>
 
-      {/* ── ZONE E: PLAYER HAND + MELDS (newest meld → older melds → sorted hand, drawn tile pinned rightmost, centered) ── */}
+      {/* ── ZONE E: PLAYER HAND + MELDS (fixed-width slot frame, centered; new draws fill the next empty slot) ── */}
       <div className="shrink-0 w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10 flex justify-center overflow-x-auto">
-        <div className="flex gap-1 items-center shrink-0">
+        <div className="flex gap-1 items-center shrink-0" style={{ width: `${handRowWidthPx}px` }}>
           {[...gameState.player.melds].reverse().map((meld, idx) =>
             renderMeldGroup(meld, 'player', gameState.player.melds.length - 1 - idx)
           )}
@@ -827,7 +865,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           <div className="w-8 h-8 rounded-full bg-amber-500 border border-white/50 flex items-center justify-center text-xs font-bold text-[#064e3b] shrink-0">
             你
           </div>
-          <span className="text-sm font-bold font-serif leading-none">玩家</span>
+          <span className="text-sm font-bold font-serif leading-none whitespace-nowrap">{playerName}</span>
         </div>
         <div className="flex items-center gap-3">
           {gameState.player.isBanker && (
@@ -835,76 +873,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               👑坐莊{gameState.dealerStreak > 1 ? `×${gameState.dealerStreak}` : ''}
             </span>
           )}
-          <span className={`text-base font-black font-mono ${gameState.player.score >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {gameState.player.score >= 0 ? '+' : ''}{gameState.player.score}
+          <span className={`text-base font-black font-mono ${gameState.player.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {gameState.player.score.toLocaleString()}
           </span>
         </div>
       </div>
 
-      {/* ── FOOTER: POPUP MENU + FIXED ACTIONS + HINT ── */}
-      <div className="relative shrink-0">
-        <AnimatePresence>
-          {showActionPopup && (
-            <motion.div
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 40, opacity: 0 }}
-              transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-              className="absolute bottom-full left-0 right-0 mb-1.5 mx-2 bg-stone-900/95 backdrop-blur border border-amber-500/30 rounded-2xl p-2 shadow-2xl z-30"
-            >
-              <div className="grid grid-cols-2 gap-2">
-                {gameState.phase === 'showMeldSelect' && interrupts.canEat && (
-                  <button
-                    onClick={handlePlayerEat}
-                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
-                  >
-                    吃牌
-                  </button>
-                )}
-                {gameState.phase === 'showMeldSelect' && interrupts.canPong && (
-                  <button
-                    onClick={handlePlayerPong}
-                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
-                  >
-                    碰牌
-                  </button>
-                )}
-                {gameState.phase === 'showMeldSelect' && interrupts.canKong && (
-                  <button
-                    onClick={handlePlayerKong}
-                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
-                  >
-                    槓牌
-                  </button>
-                )}
-                {selfKongOptions.length > 0 && (
-                  <button
-                    onClick={handlePlayerSelfKong}
-                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
-                  >
-                    {selfKongOptions[0].isUpgrade ? '補槓' : '暗槓'}
-                  </button>
-                )}
-                {((gameState.phase === 'showMeldSelect' && interrupts.canWin) || isSelfDrawWinAvailable) && (
-                  <button
-                    onClick={handlePlayerDeclareWin}
-                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
-                  >
-                    🔥 胡牌！
-                  </button>
-                )}
-                {gameState.phase === 'showMeldSelect' && (
-                  <button
-                    onClick={handlePlayerPass}
-                    className="h-16 rounded-2xl bg-stone-600 text-white font-black font-serif text-xl shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400 active:scale-95 transition"
-                  >
-                    過
-                  </button>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* ── FOOTER: FIXED ACTIONS + HINT + POPUP MENU (bottom-most, never covers the hand) ── */}
+      <div className="shrink-0 flex flex-col">
 
         {/* Two fixed action buttons: 摸牌 / 打出這張牌 */}
         <div className="px-3 pt-2 flex gap-2">
@@ -942,11 +918,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           </motion.button>
         </div>
 
-        {/* Hint row (bottom-most) */}
-        <div
-          className="px-3 py-2 flex items-center gap-2"
-          style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
-        >
+        {/* Hint row */}
+        <div className="px-3 py-2 flex items-center gap-2">
           <div className="flex-1 text-base font-serif font-semibold min-w-0 text-white">
             {gameState.turn === 'player' && gameState.phase === 'drawing' && (
               <span className="animate-pulse">👉 請按「摸牌」</span>
@@ -955,7 +928,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               <span>👉 點選手牌後按「打出這張牌」</span>
             )}
             {gameState.phase === 'showMeldSelect' && (
-              <span>⚠️ 可吃碰槓或宣胡，請從上方選單操作！</span>
+              <span>⚠️ 可吃碰槓或宣胡，請從下方選單操作！</span>
             )}
             {gameState.phase === 'aiThinking' && (
               <span>⏳ 對手思考中...</span>
@@ -972,6 +945,78 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             局誌
           </button>
         </div>
+
+        {/* Popup action menu — normal document flow, at the very bottom, never overlaps the hand row */}
+        <AnimatePresence>
+          {showActionPopup && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+              className="overflow-hidden"
+            >
+              <div
+                className="px-3 pb-2 grid grid-cols-2 gap-2"
+                style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+              >
+                {gameState.phase === 'showMeldSelect' && interrupts.canEat && (
+                  <button
+                    onClick={handlePlayerEat}
+                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+                  >
+                    吃牌
+                  </button>
+                )}
+                {gameState.phase === 'showMeldSelect' && interrupts.canPong && (
+                  <button
+                    onClick={handlePlayerPong}
+                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+                  >
+                    碰牌
+                  </button>
+                )}
+                {gameState.phase === 'showMeldSelect' && interrupts.canKong && (
+                  <button
+                    onClick={handlePlayerKong}
+                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+                  >
+                    槓牌
+                  </button>
+                )}
+                {selfKongOptions.length > 0 && (
+                  <button
+                    onClick={handlePlayerSelfKong}
+                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+                  >
+                    {selfKongOptions[0].isUpgrade ? '補槓' : '暗槓'}
+                  </button>
+                )}
+                {((gameState.phase === 'showMeldSelect' && interrupts.canWin) || isSelfDrawWinAvailable) && (
+                  <button
+                    onClick={handlePlayerDeclareWin}
+                    className="h-16 rounded-2xl bg-red-600 text-white font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(220,38,38,0.65)] ring-2 ring-red-300 active:scale-95 transition"
+                  >
+                    🔥 胡牌！
+                  </button>
+                )}
+                {gameState.phase === 'showMeldSelect' && (
+                  <button
+                    onClick={handlePlayerPass}
+                    className="h-16 rounded-2xl bg-stone-600 text-white font-black font-serif text-xl shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400 active:scale-95 transition"
+                  >
+                    過
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Safe-area bottom spacer, only needed when the popup isn't already reserving it */}
+        {!showActionPopup && (
+          <div style={{ height: 'max(0.5rem, env(safe-area-inset-bottom))' }} className="shrink-0" />
+        )}
       </div>
 
       {/* ── GAME LOG BOTTOM SHEET ── */}

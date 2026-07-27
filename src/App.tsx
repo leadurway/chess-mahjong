@@ -8,9 +8,10 @@ export default function App() {
     mode: GameMode;
     difficulty: Difficulty;
     playerIsBanker: boolean;
+    playerName: string;
   } | null>(null);
 
-  const handleStartGame = (config: { mode: GameMode; difficulty: Difficulty; playerIsBanker: boolean }) => {
+  const handleStartGame = (config: { mode: GameMode; difficulty: Difficulty; playerIsBanker: boolean; playerName: string }) => {
     setActiveGameConfig(config);
   };
 
@@ -25,6 +26,7 @@ export default function App() {
           mode={activeGameConfig.mode}
           difficulty={activeGameConfig.difficulty}
           playerIsBanker={activeGameConfig.playerIsBanker}
+          playerName={activeGameConfig.playerName}
           onExit={handleExitGame}
         />
       ) : (
