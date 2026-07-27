@@ -103,13 +103,11 @@ export function isValidMeld(tiles: Tile[]): boolean {
   if (color === 'red') {
     // Red sequences allowed: {帥, 仕, 相}, {車, 馬, 炮}
     const seq1 = ['仕', '相', '帥'].sort();
-    const seq2 = ['砲', '車', '馬'].sort(); // Handle potential typing variants
-    const seq2_alt = ['炮', '車', '馬'].sort();
+    const seq2 = ['炮', '車', '馬'].sort();
 
     const rolesKey = JSON.stringify(roles);
     if (rolesKey === JSON.stringify(seq1)) return true;
     if (rolesKey === JSON.stringify(seq2)) return true;
-    if (rolesKey === JSON.stringify(seq2_alt)) return true;
   } else {
     // Black sequences allowed: {將, 士, 象}, {車, 馬, 包}
     const seq1 = ['士', '將', '象'].sort();
@@ -377,7 +375,7 @@ export function calculateFans(
   exposedMelds: Meld[],
   isSelfDraw: boolean,
   isFirstMove: boolean,
-  winner: 'player' | 'ai'
+  isWinnerBanker: boolean
 ): { name: string; value: number }[] {
   const fans: { name: string; value: number }[] = [];
   
@@ -444,9 +442,10 @@ export function calculateFans(
     fans.push({ name: '兵卒刻組 (Soldier Melds)', value: 1 });
   }
 
-  // Heavenly/Earthly Win
-  if (isFirstMove) {
-    if (winner === 'player' && isSelfDraw) {
+  // Heavenly/Earthly Win: both require a self-drawn win before any discard has happened.
+  // 天胡 — the banker's own dealt hand is already complete; 地胡 — the idle side wins on their first draw.
+  if (isFirstMove && isSelfDraw) {
+    if (isWinnerBanker) {
       fans.push({ name: '天胡 (Heavenly Win)', value: 8 });
     } else {
       fans.push({ name: '地胡 (Earthly Win)', value: 8 });

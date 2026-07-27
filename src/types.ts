@@ -41,6 +41,7 @@ export interface GameState {
   phase: 'idle' | 'drawing' | 'waitingDiscard' | 'aiThinking' | 'showMeldSelect' | 'gameOver';
   lastDiscard: Tile | null;
   lastDiscardSender: 'player' | 'ai' | null;
+  aiDiscardOnly?: boolean; // AI just claimed a meld (pong/chow) and must discard without drawing
   winInfo: {
     winner: 'player' | 'ai' | null;
     winningTile: Tile | null;

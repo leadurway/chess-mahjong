@@ -176,6 +176,35 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const expectedIdleSize = gameState.mode === 32 ? 4 : 7;
     const expectedStartSize = gameState.mode === 32 ? 5 : 8;
 
+    // AI just claimed a pong/chow off the player's discard — it already holds
+    // the extra tile, so it must discard directly without drawing first.
+    if (gameState.aiDiscardOnly) {
+      const discarded = getAIDiscard(aiHand);
+      const remainingHand = aiHand.filter(t => t.id !== discarded.id);
+      playSfx('discard');
+
+      const newGameState: GameState = {
+        ...gameState,
+        aiDiscardOnly: false,
+        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded] },
+        turn: 'player',
+        phase: 'waitingDiscard',
+        lastDiscard: discarded,
+        lastDiscardSender: 'ai',
+        logs: [...gameState.logs, `對手組牌完成，打出了 ${discarded.color === 'red' ? '紅' : '黑'}${discarded.character}`],
+      };
+
+      const interrupts = checkForPlayerInterrupts(discarded, newGameState);
+      if (interrupts.canWin || interrupts.canPong || interrupts.canEat || interrupts.canKong) {
+        newGameState.phase = 'showMeldSelect';
+        newGameState.logs.push(`⚠️ 你可以對這張打牌進行吃、碰或胡牌！`);
+      } else {
+        newGameState.phase = 'drawing';
+      }
+      setGameState(newGameState);
+      return;
+    }
+
     if (aiHand.length === expectedIdleSize) {
       if (gameState.wall.length === 0) { handleDrawGame(); return; }
       const updatedWall = [...gameState.wall];
@@ -293,6 +322,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       nextGameState.ai.melds = [...nextGameState.ai.melds, newMeld];
       nextGameState.turn = 'ai';
       nextGameState.phase = 'aiThinking';
+      nextGameState.aiDiscardOnly = true;
       nextGameState.lastDiscard = null;
       nextGameState.logs.push(`😲 對手喊「碰！」並展示了 [${tileToDiscard.character}${tileToDiscard.character}${tileToDiscard.character}]`);
       playSfx('meld');
@@ -305,6 +335,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       nextGameState.ai.melds = [...nextGameState.ai.melds, newMeld];
       nextGameState.turn = 'ai';
       nextGameState.phase = 'aiThinking';
+      nextGameState.aiDiscardOnly = true;
       nextGameState.lastDiscard = null;
       const charStr = newMeld.tiles.map(t => t.character).join('');
       nextGameState.logs.push(`😲 對手喊「吃！」並展示了 [${charStr}]`);
@@ -450,7 +481,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     playSfx(isPlayer ? 'win' : 'lose');
     const winnerState = isPlayer ? gameState.player : gameState.ai;
     const isFirstMove = gameState.player.discards.length === 0 && gameState.ai.discards.length === 0;
-    const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, isSelfDraw, isFirstMove, winner);
+    const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, isSelfDraw, isFirstMove, winnerState.isBanker);
     const totalFans = fansCalculated.reduce((sum, f) => sum + f.value, 0);
 
     setGameState(prev => ({
