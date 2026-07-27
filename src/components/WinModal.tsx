@@ -112,20 +112,20 @@ export const WinModal: React.FC<WinModalProps> = ({
         <div className="space-y-3 mb-4">
           <div>
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">🤖 電腦手牌</span>
-            <div className="flex gap-1 bg-stone-950 rounded-xl p-1 border border-stone-800 overflow-x-auto">
+            <div className="-mx-3 flex gap-0.5 justify-center bg-stone-950 p-1 border-y border-stone-800 overflow-x-auto">
               {aiReveal.map(({ tile, isWinningTile }, idx) => (
                 <div key={`ai_${idx}`} className="shrink-0">
-                  <ChessTile tile={tile} size="xs" glow={isWinningTile ? 'red' : undefined} />
+                  <ChessTile tile={tile} size="winReveal" glow={isWinningTile ? 'red' : undefined} />
                 </div>
               ))}
             </div>
           </div>
           <div>
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">👤 玩家手牌</span>
-            <div className="flex gap-1 bg-stone-950 rounded-xl p-1 border border-stone-800 overflow-x-auto">
+            <div className="-mx-3 flex gap-0.5 justify-center bg-stone-950 p-1 border-y border-stone-800 overflow-x-auto">
               {playerReveal.map(({ tile, isWinningTile }, idx) => (
                 <div key={`p_${idx}`} className="shrink-0">
-                  <ChessTile tile={tile} size="xs" glow={isWinningTile ? 'red' : undefined} />
+                  <ChessTile tile={tile} size="winReveal" glow={isWinningTile ? 'red' : undefined} />
                 </div>
               ))}
             </div>

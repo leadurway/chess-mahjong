@@ -11,6 +11,9 @@ import {
   getKongCombinations,
   getSelfKongOptions,
   getAIDiscard,
+  getAIDiscardAdvanced,
+  shouldTakeMeld,
+  computeHandProgressScore,
   calculateFans,
   evaluateHand,
   sortHandForDisplay
@@ -243,6 +246,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     return { canWin, canPong, canEat, eatCombos, canKong };
   };
 
+  // Easy AI keeps its original flat-heuristic discard (getAIDiscard) untouched; Hard AI
+  // ("大師") uses the shanten-style evaluator, which also steers away from tiles the
+  // opponent has already shown (via their exposed melds) that they collect.
+  const chooseAIDiscard = (hand: Tile[], meldsCount: number): Tile => {
+    return gameState.difficulty === 'hard'
+      ? getAIDiscardAdvanced(hand, meldsCount, gameState.mode, gameState.player.melds)
+      : getAIDiscard(hand);
+  };
+
   const handleAILoops = () => {
     const aiHand = [...gameState.ai.hand];
     const aiMelds = gameState.ai.melds;
@@ -256,7 +268,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     // AI just claimed a pong/chow off the player's discard — it already holds
     // the extra tile, so it must discard directly without drawing first.
     if (gameState.aiDiscardOnly) {
-      const discarded = getAIDiscard(aiHand);
+      const discarded = chooseAIDiscard(aiHand, aiMelds.length);
       const remainingHand = aiHand.filter(t => t.id !== discarded.id);
       playSfx('discard');
 
@@ -313,7 +325,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           return;
         }
 
-        const discarded = getAIDiscard(finalAiHand);
+        const discarded = chooseAIDiscard(finalAiHand, aiMeldsAfterKong.length);
         const remainingHand = finalAiHand.filter(t => t.id !== discarded.id);
         playSfx('discard');
 
@@ -338,7 +350,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         return;
       }
 
-      const discarded = getAIDiscard(aiHand);
+      const discarded = chooseAIDiscard(aiHand, aiMelds.length);
       const remainingHand = aiHand.filter(t => t.id !== discarded.id);
       playSfx('discard');
 
@@ -367,7 +379,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         triggerWin('ai', null, true, gameState.wall, aiHand);
         return;
       }
-      const discarded = getAIDiscard(aiHand);
+      const discarded = chooseAIDiscard(aiHand, aiMelds.length);
       const remainingHand = aiHand.filter(t => t.id !== discarded.id);
       playSfx('discard');
 
@@ -434,11 +446,48 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
     const aiPongCombo = getPongCombination(nextGameState.ai.hand, tileToDiscard);
     const aiEatCombos = getEatCombinations(nextGameState.ai.hand, tileToDiscard);
+    const aiMeldsCountBefore = nextGameState.ai.melds.length;
     let aiMelded = false;
 
-    if (aiPongCombo && (gameState.difficulty === 'hard' || Math.random() > 0.3)) {
-      const aiUpdatedHand = nextGameState.ai.hand.filter(t => !aiPongCombo.some(p => p.id === t.id));
-      const newMeld: Meld = { type: 'pong', tiles: [...aiPongCombo, tileToDiscard], discardSource: 'player' };
+    const wantsPong = aiPongCombo && (
+      gameState.difficulty === 'hard'
+        ? shouldTakeMeld(
+            nextGameState.ai.hand,
+            aiMeldsCountBefore,
+            nextGameState.ai.hand.filter(t => !aiPongCombo.some(p => p.id === t.id)),
+            aiMeldsCountBefore + 1,
+            gameState.mode
+          )
+        : Math.random() > 0.3
+    );
+
+    // Hard AI picks whichever chow combo leaves its hand in the best shape, rather than
+    // always taking the first option the way Easy does.
+    const bestEatCombo = gameState.difficulty === 'hard' && aiEatCombos.length > 0
+      ? aiEatCombos.reduce((best, combo) => {
+          const bestAfter = nextGameState.ai.hand.filter(t => !best.some(p => p.id === t.id));
+          const comboAfter = nextGameState.ai.hand.filter(t => !combo.some(p => p.id === t.id));
+          const bestScore = computeHandProgressScore(bestAfter, aiMeldsCountBefore + 1, gameState.mode);
+          const comboScore = computeHandProgressScore(comboAfter, aiMeldsCountBefore + 1, gameState.mode);
+          return comboScore > bestScore ? combo : best;
+        })
+      : aiEatCombos[0];
+
+    const wantsEat = aiEatCombos.length > 0 && (
+      gameState.difficulty === 'hard'
+        ? shouldTakeMeld(
+            nextGameState.ai.hand,
+            aiMeldsCountBefore,
+            nextGameState.ai.hand.filter(t => !bestEatCombo.some(p => p.id === t.id)),
+            aiMeldsCountBefore + 1,
+            gameState.mode
+          )
+        : Math.random() > 0.4
+    );
+
+    if (wantsPong) {
+      const aiUpdatedHand = nextGameState.ai.hand.filter(t => !aiPongCombo!.some(p => p.id === t.id));
+      const newMeld: Meld = { type: 'pong', tiles: [...aiPongCombo!, tileToDiscard], discardSource: 'player' };
       nextGameState.ai.hand = aiUpdatedHand;
       nextGameState.ai.melds = [...nextGameState.ai.melds, newMeld];
       nextGameState.turn = 'ai';
@@ -448,10 +497,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       nextGameState.logs.push(`😲 對手喊「碰！」並展示了 [${tileToDiscard.character}${tileToDiscard.character}${tileToDiscard.character}]`);
       playSfx('meld');
       aiMelded = true;
-    } else if (aiEatCombos.length > 0 && (gameState.difficulty === 'hard' || Math.random() > 0.4)) {
-      const selectedCombo = aiEatCombos[0];
-      const aiUpdatedHand = nextGameState.ai.hand.filter(t => !selectedCombo.some(p => p.id === t.id));
-      const newMeld: Meld = { type: 'chow', tiles: [...selectedCombo, tileToDiscard], discardSource: 'player' };
+    } else if (wantsEat) {
+      const aiUpdatedHand = nextGameState.ai.hand.filter(t => !bestEatCombo.some(p => p.id === t.id));
+      const newMeld: Meld = { type: 'chow', tiles: [...bestEatCombo, tileToDiscard], discardSource: 'player' };
       nextGameState.ai.hand = aiUpdatedHand;
       nextGameState.ai.melds = [...nextGameState.ai.melds, newMeld];
       nextGameState.turn = 'ai';

@@ -4,7 +4,7 @@ import { Tile } from '../types';
 
 interface ChessTileProps {
   tile: Tile;
-  size?: 'xs' | 'sm' | 'handHalf' | 'hand' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'handHalf' | 'hand' | 'md' | 'lg' | 'xl' | 'winReveal';
   isFaceDown?: boolean;
   /** Hand tile picked for discard: keeps its normal face, adds a yellow glow ring + gentle bounce. */
   isSelected?: boolean;
@@ -25,6 +25,9 @@ const SIZE_CLASSES: Record<NonNullable<ChessTileProps['size']>, { box: string; f
   md: { box: 'w-12', font: 'text-xl' },
   lg: { box: 'w-16', font: 'text-3xl' },
   xl: { box: 'w-20', font: 'text-4xl' },
+  // Win-modal hand reveal: sized so all 8 tiles fit edge-to-edge on the narrowest supported
+  // phone width without clipping, while still being noticeably larger than the old "xs".
+  winReveal: { box: 'w-[38px]', font: 'text-base' },
 };
 
 export const ChessTile: React.FC<ChessTileProps> = ({
@@ -43,13 +46,19 @@ export const ChessTile: React.FC<ChessTileProps> = ({
 
   const textStyle = isRed ? 'text-[#b91c1c]' : 'text-[#111827]';
 
-  // Face-down back: a generic tile-back lattice pattern (no character), blue-toned.
+  // Face-down back: a traditional dark navy tile back with a woven diamond-lattice pattern
+  // (in place of the old plain blue concentric-circle look), framed by a thin gold trim ring.
   const backContent = (
-    <div className="w-full h-full relative rounded-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800 border-2 border-blue-950 shadow-[inset_0_0_10px_rgba(0,0,0,0.3),0_3px_6px_rgba(0,0,0,0.3)] select-none overflow-hidden">
-      <div className="absolute inset-[10%] rounded-full border-2 border-blue-300/70" />
-      <div className="absolute inset-[24%] rounded-full border border-blue-200/60" />
-      <div className="absolute inset-[38%] rounded-full bg-blue-300/40" />
-      <div className="absolute inset-[45%] rounded-full bg-blue-100/70" />
+    <div className="w-full h-full relative rounded-full flex items-center justify-center bg-gradient-to-br from-[#1b2a4a] to-[#0a1226] border-2 border-[#060b18] shadow-[inset_0_0_10px_rgba(0,0,0,0.5),0_3px_6px_rgba(0,0,0,0.3)] select-none overflow-hidden">
+      <div
+        className="absolute inset-0 opacity-70"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(148,163,184,0.22) 3px, rgba(148,163,184,0.22) 4px), repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(148,163,184,0.22) 3px, rgba(148,163,184,0.22) 4px)',
+        }}
+      />
+      <div className="absolute inset-[10%] rounded-full border border-amber-200/40" />
+      <div className="absolute inset-[38%] rounded-full bg-[#0a1226] border border-amber-100/30" />
     </div>
   );
 

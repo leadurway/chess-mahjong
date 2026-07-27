@@ -93,6 +93,11 @@ export function generateTilePool(mode: GameMode): Tile[] {
   return shuffled;
 }
 
+// The two valid sequences (順子) per color — shared by isValidMeld and the AI's partial-sequence
+// detection so both stay in sync.
+const RED_SEQUENCES: TileRole[][] = [['帥', '仕', '相'], ['車', '馬', '炮']];
+const BLACK_SEQUENCES: TileRole[][] = [['將', '士', '象'], ['車', '馬', '包']];
+
 // Check if 3 tiles form a valid meld (面子)
 export function isValidMeld(tiles: Tile[]): boolean {
   if (tiles.length !== 3) return false;
@@ -114,26 +119,9 @@ export function isValidMeld(tiles: Tile[]): boolean {
 
   const color = t1.color;
   const roles = tiles.map(t => t.role).sort();
-
-  if (color === 'red') {
-    // Red sequences allowed: {帥, 仕, 相}, {車, 馬, 炮}
-    const seq1 = ['仕', '相', '帥'].sort();
-    const seq2 = ['炮', '車', '馬'].sort();
-
-    const rolesKey = JSON.stringify(roles);
-    if (rolesKey === JSON.stringify(seq1)) return true;
-    if (rolesKey === JSON.stringify(seq2)) return true;
-  } else {
-    // Black sequences allowed: {將, 士, 象}, {車, 馬, 包}
-    const seq1 = ['士', '將', '象'].sort();
-    const seq2 = ['包', '車', '馬'].sort();
-
-    const rolesKey = JSON.stringify(roles);
-    if (rolesKey === JSON.stringify(seq1)) return true;
-    if (rolesKey === JSON.stringify(seq2)) return true;
-  }
-
-  return false;
+  const rolesKey = JSON.stringify(roles);
+  const sequences = color === 'red' ? RED_SEQUENCES : BLACK_SEQUENCES;
+  return sequences.some(seq => JSON.stringify([...seq].sort()) === rolesKey);
 }
 
 // Check if two tiles can make a pair (對子)
@@ -583,4 +571,208 @@ export function getAIDiscard(hand: Tile[]): Tile {
   }
 
   return bestDiscard;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Hard AI ("大師"): a shanten-style evaluator that actually models meld-building
+// instead of the flat heuristic scoring above (which Easy AI keeps using as-is).
+// ────────────────────────────────────────────────────────────────────────────
+
+// Two tiles are a "partial sequence" if they're two-of-three members of the same
+// valid 順子 for their shared color (e.g. 帥+仕, needing 相 to complete).
+function isPartialSequence(a: TileRole, b: TileRole, color: TileColor): boolean {
+  if (a === b) return false;
+  const sequences = color === 'red' ? RED_SEQUENCES : BLACK_SEQUENCES;
+  return sequences.some(seq => seq.includes(a) && seq.includes(b));
+}
+
+// Backtracking search for the MAXIMUM number of complete melds (面子) extractable
+// from a tile list, returning that count plus whatever tiles are left over. Hand
+// sizes here are always small (≤8), so exhaustive search is cheap.
+function bestMeldExtraction(tiles: Tile[]): { count: number; remainder: Tile[] } {
+  if (tiles.length < 3) return { count: 0, remainder: tiles };
+
+  let best = { count: 0, remainder: tiles };
+  const [head, ...rest] = tiles;
+
+  for (let i = 0; i < rest.length; i++) {
+    for (let j = i + 1; j < rest.length; j++) {
+      const candidate = [head, rest[i], rest[j]];
+      if (!isValidMeld(candidate)) continue;
+      const leftover = rest.filter((_, idx) => idx !== i && idx !== j);
+      const sub = bestMeldExtraction(leftover);
+      if (sub.count + 1 > best.count) {
+        best = { count: sub.count + 1, remainder: sub.remainder };
+      }
+    }
+  }
+
+  // Also try leaving the head tile unused entirely, in case that yields more melds overall.
+  const skipHead = bestMeldExtraction(rest);
+  if (skipHead.count > best.count) {
+    best = { count: skipHead.count, remainder: [head, ...skipHead.remainder] };
+  }
+
+  return best;
+}
+
+// Among leftover tiles (after pulling out complete melds and the eye), count
+// non-overlapping "one tile away" proto-melds: pairs (→ triple) or partial sequences.
+function countPartialGroups(tiles: Tile[]): number {
+  const used = new Array(tiles.length).fill(false);
+  let count = 0;
+  for (let i = 0; i < tiles.length; i++) {
+    if (used[i]) continue;
+    for (let j = i + 1; j < tiles.length; j++) {
+      if (used[j]) continue;
+      const a = tiles[i];
+      const b = tiles[j];
+      if (a.color !== b.color) continue;
+      const isProtoTriple = a.role === b.role;
+      const isProtoSequence = isPartialSequence(a.role, b.role, a.color);
+      if (isProtoTriple || isProtoSequence) {
+        used[i] = true;
+        used[j] = true;
+        count++;
+        break;
+      }
+    }
+  }
+  return count;
+}
+
+// Greedy count of non-overlapping pairs across a whole hand — used to credit progress
+// toward 對子四組 (four pairs), which the meld+eye shape analysis doesn't model.
+function countGreedyPairs(tiles: Tile[]): number {
+  const used = new Array(tiles.length).fill(false);
+  let count = 0;
+  for (let i = 0; i < tiles.length; i++) {
+    if (used[i]) continue;
+    for (let j = i + 1; j < tiles.length; j++) {
+      if (used[j]) continue;
+      if (isPair(tiles[i], tiles[j])) {
+        used[i] = true;
+        used[j] = true;
+        count++;
+        break;
+      }
+    }
+  }
+  return count;
+}
+
+// Best achievable shape for a concealed hand: tries every candidate eye (pair), plus the
+// option of no eye yet, and keeps whichever choice yields the most complete melds (with
+// partial groups as a tiebreaker).
+function analyzeHandShape(concealedHand: Tile[]): { completeMelds: number; hasEye: boolean; partialGroups: number } {
+  let best = { completeMelds: 0, hasEye: false, partialGroups: 0 };
+  let bestRank = -1;
+
+  const consider = (completeMelds: number, hasEye: boolean, partialGroups: number) => {
+    const rank = completeMelds * 100 + (hasEye ? 50 : 0) + partialGroups * 10;
+    if (rank > bestRank) {
+      bestRank = rank;
+      best = { completeMelds, hasEye, partialGroups };
+    }
+  };
+
+  // No eye committed yet — still worth ranking in case the hand is far from a pair.
+  {
+    const { count, remainder } = bestMeldExtraction(concealedHand);
+    consider(count, false, countPartialGroups(remainder));
+  }
+
+  for (let i = 0; i < concealedHand.length; i++) {
+    for (let j = i + 1; j < concealedHand.length; j++) {
+      if (!isPair(concealedHand[i], concealedHand[j])) continue;
+      const rest = concealedHand.filter((_, idx) => idx !== i && idx !== j);
+      const { count, remainder } = bestMeldExtraction(rest);
+      consider(count, true, countPartialGroups(remainder));
+    }
+  }
+
+  return best;
+}
+
+// Higher = closer to a complete winning hand. Combines exposed + concealed melds against
+// what the mode actually requires, whether a pair/eye is in place, and how many "one tile
+// away" groups remain — with a sliver of the old heuristic as a tiebreaker only.
+export function computeHandProgressScore(concealedHand: Tile[], exposedMeldsCount: number, mode: GameMode): number {
+  const shape = analyzeHandShape(concealedHand);
+  const totalMelds = exposedMeldsCount + shape.completeMelds;
+
+  // A winning hand only ever needs 1 meld (32-tile mode) or 2 melds (56/64-tile mode) plus
+  // the eye — melds beyond that don't bring the hand closer to winning, so they're capped
+  // at full value and only credited a small residual afterward. Without this cap, the score
+  // would keep rewarding "one more meld" even when doing so means sacrificing the only eye
+  // in hand, which is never actually worth it once the meld requirement is already met.
+  const requiredMelds = mode === 32 ? 1 : 2;
+  const cappedMelds = Math.min(totalMelds, requiredMelds);
+  const surplusMelds = totalMelds - cappedMelds;
+  let score = cappedMelds * 1000 + surplusMelds * 50;
+  if (shape.hasEye) score += 400;
+  score += shape.partialGroups * 80;
+
+  // The meld+eye shape above doesn't recognize the mode-specific special hands, so credit
+  // progress toward those separately (only meaningful while still fully concealed).
+  if (exposedMeldsCount === 0) {
+    if (mode === 32) {
+      const redSoldiers = concealedHand.filter(t => t.color === 'red' && t.role === '兵').length;
+      const blackSoldiers = concealedHand.filter(t => t.color === 'black' && t.role === '卒').length;
+      score += Math.max(redSoldiers, blackSoldiers) * 90; // building toward 五兵/五卒將星
+    } else {
+      score += countGreedyPairs(concealedHand) * 90; // building toward 對子四組
+    }
+  }
+
+  score += evaluateHand(concealedHand) * 0.1;
+  return score;
+}
+
+// Hard-only discard choice: for each candidate discard, score the resulting hand with the
+// shanten-style evaluator above, and steer away from tiles the opponent has already shown
+// (via their own exposed melds) that they collect — using only public information, not a
+// peek at their concealed hand.
+export function getAIDiscardAdvanced(
+  hand: Tile[],
+  ownMeldsCount: number,
+  mode: GameMode,
+  opponentMelds: Meld[] = []
+): Tile {
+  if (hand.length === 0) return {} as Tile;
+
+  const dangerousKeys = new Set(opponentMelds.flatMap(m => m.tiles.map(t => `${t.color}_${t.role}`)));
+
+  let bestDiscard: Tile = hand[0];
+  let bestScore = -Infinity;
+
+  for (let i = 0; i < hand.length; i++) {
+    const candidate = hand[i];
+    const resultingHand = hand.filter((_, idx) => idx !== i);
+    let score = computeHandProgressScore(resultingHand, ownMeldsCount, mode);
+    if (dangerousKeys.has(`${candidate.color}_${candidate.role}`)) {
+      score -= 60;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestDiscard = candidate;
+    }
+  }
+
+  return bestDiscard;
+}
+
+// Hard-only pong/eat decision: only take the meld if it genuinely improves the hand's
+// progress toward winning by more than the value of staying concealed (門清) would.
+export function shouldTakeMeld(
+  handBefore: Tile[],
+  meldsCountBefore: number,
+  handAfter: Tile[],
+  meldsCountAfter: number,
+  mode: GameMode
+): boolean {
+  const before = computeHandProgressScore(handBefore, meldsCountBefore, mode);
+  const concealedBonus = meldsCountBefore === 0 ? 60 : 0;
+  const after = computeHandProgressScore(handAfter, meldsCountAfter, mode);
+  return after > before + concealedBonus;
 }
