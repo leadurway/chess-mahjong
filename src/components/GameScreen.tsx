@@ -442,7 +442,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
     const aiCompleteHand = [...nextGameState.ai.hand, tileToDiscard];
     const aiCanWin = isWinningHand(aiCompleteHand, nextGameState.ai.melds);
-    if (aiCanWin) { triggerWin('ai', tileToDiscard, false, nextGameState.wall, aiCompleteHand); return; }
+    if (aiCanWin) {
+      // Commit the post-discard player hand first — triggerWin reads the discarder's hand off
+      // the live state (via its own setGameState(prev => ...)), so without this it would still
+      // see the stale pre-discard hand and show the just-discarded winning tile twice (once in
+      // the loser's revealed hand, once pinned in the winner's).
+      setGameState(nextGameState);
+      triggerWin('ai', tileToDiscard, false, nextGameState.wall, aiCompleteHand);
+      return;
+    }
 
     const aiPongCombo = getPongCombination(nextGameState.ai.hand, tileToDiscard);
     const aiEatCombos = getEatCombinations(nextGameState.ai.hand, tileToDiscard);
@@ -1269,6 +1277,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           totalFans={gameState.winInfo.totalFans}
           playerAllTiles={gameState.winInfo.playerAllTiles}
           aiAllTiles={gameState.winInfo.aiAllTiles}
+          mode={gameState.mode}
           onRestart={handleReplay}
         />
       )}

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChessTile } from './ChessTile';
-import { Tile } from '../types';
+import { Tile, GameMode } from '../types';
 import { sortHandForDisplay } from '../utils/gameEngine';
 
 interface WinModalProps {
@@ -11,6 +11,7 @@ interface WinModalProps {
   totalFans: number;
   playerAllTiles: Tile[];
   aiAllTiles: Tile[];
+  mode: GameMode;
   onRestart: () => void;
 }
 
@@ -71,6 +72,7 @@ export const WinModal: React.FC<WinModalProps> = ({
   totalFans,
   playerAllTiles,
   aiAllTiles,
+  mode,
   onRestart,
 }) => {
   const isPlayerWin = winner === 'player';
@@ -84,6 +86,13 @@ export const WinModal: React.FC<WinModalProps> = ({
 
   const aiReveal = getRevealTiles(aiAllTiles, isPlayerWin ? null : winningTile);
   const playerReveal = getRevealTiles(playerAllTiles, isPlayerWin ? winningTile : null);
+
+  // Both rows always use the SAME number of grid columns (the mode's full hand size),
+  // regardless of how many tiles either side actually holds — so tile size stays identical
+  // between the two rows and across hands. Whoever holds fewer tiles (the side that just
+  // discarded the winning tile) simply leaves the trailing slot(s) on the right empty,
+  // rather than their tiles stretching wider to fill the row.
+  const slotCount = mode === 32 ? 5 : 8;
 
   return (
     // flex-col + a lone `m-auto` child (below) centers the modal both ways when it fits the
@@ -112,14 +121,15 @@ export const WinModal: React.FC<WinModalProps> = ({
       <div className="relative w-full max-w-md bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-3 m-auto shadow-2xl text-stone-100">
 
         {/* a. Both hands, one row each, sorted, winning tile pinned rightmost with red glow.
-            Grid columns (not fixed tile widths) so the row always fills the exact available
-            width edge-to-edge, on every screen size, instead of leaving leftover side gaps. */}
+            Grid columns fixed to the mode's full hand size (not the actual tile count) so
+            the row fills the exact available width edge-to-edge and both hands render at the
+            identical tile size, with any missing tile leaving an empty slot on the right. */}
         <div className="space-y-3 mb-4">
           <div>
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">🤖 電腦手牌</span>
             <div
               className="-mx-3 grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800"
-              style={{ gridTemplateColumns: `repeat(${aiReveal.length}, minmax(0, 1fr))` }}
+              style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
             >
               {aiReveal.map(({ tile, isWinningTile }, idx) => (
                 <ChessTile key={`ai_${idx}`} tile={tile} size="winReveal" glow={isWinningTile ? 'red' : undefined} />
@@ -130,7 +140,7 @@ export const WinModal: React.FC<WinModalProps> = ({
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">👤 玩家手牌</span>
             <div
               className="-mx-3 grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800"
-              style={{ gridTemplateColumns: `repeat(${playerReveal.length}, minmax(0, 1fr))` }}
+              style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
             >
               {playerReveal.map(({ tile, isWinningTile }, idx) => (
                 <ChessTile key={`p_${idx}`} tile={tile} size="winReveal" glow={isWinningTile ? 'red' : undefined} />
