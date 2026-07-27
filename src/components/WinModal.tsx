@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChessTile } from './ChessTile';
 import { Tile } from '../types';
+import { sortHandForDisplay } from '../utils/gameEngine';
 
 interface WinModalProps {
   winner: 'player' | 'ai';
+  winningTile: Tile | null;
   isSelfDraw: boolean;
   fans: Array<{ name: string; value: number }>;
   totalFans: number;
@@ -47,8 +49,23 @@ function useFireworkParticles(burstCount = 6, particlesPerBurst = 10) {
   }, []);
 }
 
+// Sorted tiles for reveal display; if this side holds the winning tile, it's pulled
+// out of the sort and pinned at the far right with a red glow (mirrors the live
+// "pinned drawn tile" convention).
+function getRevealTiles(allTiles: Tile[], winningTile: Tile | null) {
+  if (!winningTile || !allTiles.some(t => t.id === winningTile.id)) {
+    return sortHandForDisplay(allTiles).map(tile => ({ tile, isWinningTile: false }));
+  }
+  const rest = allTiles.filter(t => t.id !== winningTile.id);
+  return [
+    ...sortHandForDisplay(rest).map(tile => ({ tile, isWinningTile: false })),
+    { tile: winningTile, isWinningTile: true },
+  ];
+}
+
 export const WinModal: React.FC<WinModalProps> = ({
   winner,
+  winningTile,
   isSelfDraw,
   fans,
   totalFans,
@@ -64,6 +81,9 @@ export const WinModal: React.FC<WinModalProps> = ({
     const timer = setTimeout(() => setShowContinue(true), 3000);
     return () => clearTimeout(timer);
   }, []);
+
+  const aiReveal = getRevealTiles(aiAllTiles, isPlayerWin ? null : winningTile);
+  const playerReveal = getRevealTiles(playerAllTiles, isPlayerWin ? winningTile : null);
 
   return (
     <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-3 overflow-hidden">
@@ -88,32 +108,36 @@ export const WinModal: React.FC<WinModalProps> = ({
 
       <div className="relative w-full max-w-md bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-5 shadow-2xl text-stone-100">
 
-        {/* a. Both hands, one row each */}
+        {/* a. Both hands, one row each, sorted, winning tile pinned rightmost with red glow */}
         <div className="space-y-3 mb-4">
           <div>
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">🤖 電腦手牌</span>
-            <div className="flex flex-wrap gap-1 bg-stone-950 rounded-xl p-2 border border-stone-800">
-              {aiAllTiles.map((tile, idx) => (
-                <ChessTile key={`ai_${idx}`} tile={tile} size="sm" />
+            <div className="flex gap-1 bg-stone-950 rounded-xl p-2 border border-stone-800 overflow-x-auto">
+              {aiReveal.map(({ tile, isWinningTile }, idx) => (
+                <div key={`ai_${idx}`} className="shrink-0">
+                  <ChessTile tile={tile} size="sm" glow={isWinningTile ? 'red' : undefined} />
+                </div>
               ))}
             </div>
           </div>
           <div>
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">👤 玩家手牌</span>
-            <div className="flex flex-wrap gap-1 bg-stone-950 rounded-xl p-2 border border-stone-800">
-              {playerAllTiles.map((tile, idx) => (
-                <ChessTile key={`p_${idx}`} tile={tile} size="sm" />
+            <div className="flex gap-1 bg-stone-950 rounded-xl p-2 border border-stone-800 overflow-x-auto">
+              {playerReveal.map(({ tile, isWinningTile }, idx) => (
+                <div key={`p_${idx}`} className="shrink-0">
+                  <ChessTile tile={tile} size="sm" glow={isWinningTile ? 'red' : undefined} />
+                </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* b. Win message box — same color scheme as the active draw button, 150%/200% sized */}
-        <div className="w-full h-36 mb-4 rounded-2xl bg-red-600 text-white shadow-[0_0_24px_8px_rgba(220,38,38,0.55)] ring-2 ring-red-300 flex flex-col items-center justify-center">
-          <span className="text-3xl font-serif font-black">
+        {/* b. Win message box — same color scheme as the active draw button, height reduced to 60% */}
+        <div className="w-full h-[86px] mb-4 rounded-2xl bg-red-600 text-white shadow-[0_0_24px_8px_rgba(220,38,38,0.55)] ring-2 ring-red-300 flex flex-col items-center justify-center">
+          <span className="text-2xl font-serif font-black">
             {isPlayerWin ? '玩家' : '電腦'} {isSelfDraw ? '自摸' : '胡牌'}！
           </span>
-          <span className="text-sm mt-1 opacity-90">{isPlayerWin ? '🌟 恭喜獲勝！' : '💀 對手胡牌了'}</span>
+          <span className="text-xs mt-0.5 opacity-90">{isPlayerWin ? '🌟 恭喜獲勝！' : '💀 對手胡牌了'}</span>
         </div>
 
         {/* c. Fan / score calculation */}
@@ -135,11 +159,11 @@ export const WinModal: React.FC<WinModalProps> = ({
           </div>
         </div>
 
-        {/* d. Continue button — appears after 3s, same size as the win message box */}
+        {/* d. Continue button — appears after 3s, height reduced to 60% to match the message box */}
         {showContinue && (
           <button
             onClick={onRestart}
-            className="w-full h-36 rounded-2xl bg-yellow-400 text-black font-serif font-black text-2xl shadow-[0_0_24px_8px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+            className="w-full h-[86px] rounded-2xl bg-yellow-400 text-black font-serif font-black text-xl shadow-[0_0_24px_8px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
           >
             繼續下局
           </button>

@@ -12,7 +12,7 @@ const SELECTED_BTN =
 const UNSELECTED_BTN = 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80';
 
 export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
-  const [mode, setMode] = useState<GameMode>(32);
+  const [mode, setMode] = useState<GameMode>(56);
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [playerIsBanker, setPlayerIsBanker] = useState<boolean>(true);
   const [showRules, setShowRules] = useState<boolean>(false);
@@ -51,7 +51,7 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
               className="w-8 h-8 rounded-full border border-amber-400/50 shadow-md object-cover shrink-0"
             />
           </div>
-          <p className="text-white/60 text-[11px] mt-0.5 font-mono tracking-wider">
+          <p className="text-white/90 text-sm mt-0.5 font-mono tracking-wider">
             CHINESE CHESS MAHJONG SIMULATOR
           </p>
         </div>
@@ -60,8 +60,8 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
         <div className="space-y-3 shrink-0">
 
           {/* Mode Selection */}
-          <div>
-            <label className="text-sm font-bold text-amber-200 block mb-1.5 font-serif">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+            <label className="text-base font-bold text-amber-200 block mb-2 font-serif">
               🥋 棋子數量模式 (Tile Mode)
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -71,7 +71,7 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
                 className={`py-2 px-1 rounded-xl text-base border transition-all duration-200 cursor-pointer ${mode === 32 ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 32 子 (經典)
-                <span className="block text-xs opacity-80 font-normal">單一副象棋</span>
+                <span className="block text-sm opacity-90 font-normal">單一副象棋</span>
               </button>
 
               <button
@@ -80,7 +80,7 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
                 className={`py-2 px-1 rounded-xl text-base border transition-all duration-200 cursor-pointer ${mode === 56 ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 56 子 (中等)
-                <span className="block text-xs opacity-80 font-normal">中位混合版</span>
+                <span className="block text-sm opacity-90 font-normal">中位混合版</span>
               </button>
 
               <button
@@ -89,10 +89,10 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
                 className={`py-2 px-1 rounded-xl text-base border transition-all duration-200 cursor-pointer ${mode === 64 ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 64 子 (雙副)
-                <span className="block text-xs opacity-80 font-normal">兩副完整棋</span>
+                <span className="block text-sm opacity-90 font-normal">兩副完整棋</span>
               </button>
             </div>
-            <p className="text-white/40 text-[11px] mt-1.5 leading-snug">
+            <p className="text-white/70 text-sm mt-2 leading-snug">
               {mode === 32 && '💡 32子：莊家起手 5 張，閒家 4 張。1組面子＋1個對子或特殊「五兵（卒）」組合即可勝利。'}
               {mode === 56 && '💡 56子：每種牌面各 4 張。莊家起手 8 張，閒家 7 張。兩面子＋一對子或「四對組」胡牌。'}
               {mode === 64 && '💡 64子：完整兩副象棋。莊家起手 8 張，閒家 7 張。多卡高重合，碰牌快意對決。'}
@@ -100,8 +100,8 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
           </div>
 
           {/* AI Difficulty */}
-          <div>
-            <label className="text-sm font-bold text-amber-200 block mb-1.5 font-serif">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+            <label className="text-base font-bold text-amber-200 block mb-2 font-serif">
               🤖 對手 AI 難度 (AI Difficulty)
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -123,8 +123,8 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
           </div>
 
           {/* Who is Dealer / Banker */}
-          <div>
-            <label className="text-sm font-bold text-amber-200 block mb-1.5 font-serif">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+            <label className="text-base font-bold text-amber-200 block mb-2 font-serif">
               👑 起手莊家 (Starting Dealer)
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -160,14 +160,14 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
           <button
             type="button"
             onClick={() => setShowRules(true)}
-            className="w-full bg-white/5 hover:bg-white/10 text-white/90 text-sm py-1.5 rounded-xl transition border border-white/10 cursor-pointer"
+            className="w-full bg-white/5 hover:bg-white/10 text-white/95 text-base py-1.5 rounded-xl transition border border-white/10 cursor-pointer"
           >
             查看規則與台數說明 (Rules)
           </button>
         </div>
 
         {/* Footer info label */}
-        <p className="text-[10px] text-white/30 text-center mt-2 shrink-0">
+        <p className="text-sm text-white/60 text-center mt-2 shrink-0">
           象棋麻將單人演練系統 © 2026
         </p>
 

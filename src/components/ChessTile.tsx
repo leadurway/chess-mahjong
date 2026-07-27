@@ -4,7 +4,7 @@ import { Tile } from '../types';
 
 interface ChessTileProps {
   tile: Tile;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'hand' | 'md' | 'lg' | 'xl';
   isFaceDown?: boolean;
   /** Hand tile picked for discard: keeps its normal face, adds a blue glow ring + gentle bounce. */
   isSelected?: boolean;
@@ -18,6 +18,8 @@ interface ChessTileProps {
 const SIZE_CLASSES: Record<NonNullable<ChessTileProps['size']>, { box: string; font: string }> = {
   xs: { box: 'w-7', font: 'text-xs' },
   sm: { box: 'w-10', font: 'text-lg' },
+  // Hand/meld display size: the old "sm" hand size (40px/18px) enlarged by +10%/+20%.
+  hand: { box: 'w-11', font: 'text-[22px]' },
   md: { box: 'w-12', font: 'text-xl' },
   lg: { box: 'w-16', font: 'text-3xl' },
   xl: { box: 'w-20', font: 'text-4xl' },
