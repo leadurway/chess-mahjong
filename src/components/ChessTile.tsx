@@ -59,7 +59,6 @@ export const ChessTile: React.FC<ChessTileProps> = ({
         }}
       />
       <div className="absolute inset-[10%] rounded-full border border-amber-200/40" />
-      <div className="absolute inset-[38%] rounded-full bg-[#0a1226] border border-amber-100/30" />
     </div>
   );
 

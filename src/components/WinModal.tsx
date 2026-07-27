@@ -99,25 +99,6 @@ export const WinModal: React.FC<WinModalProps> = ({
     // viewport, but degrades to natural top-aligned flow — not a broken/clipped-off overflow —
     // once content is taller than the screen (landscape phones), so overflow-y-auto keeps working.
     <div className="fixed inset-0 bg-black/85 z-50 overflow-y-auto p-3 flex flex-col">
-      {/* Fireworks background — fixed to the viewport regardless of modal scroll position */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {particles.map(p => (
-          <div
-            key={p.id}
-            className="firework-particle"
-            style={{
-              '--fw-origin-x': p.originX,
-              '--fw-origin-y': p.originY,
-              '--fw-dx': `${p.dx}px`,
-              '--fw-dy': `${p.dy}px`,
-              '--fw-delay': `${p.delay}s`,
-              backgroundColor: p.color,
-              boxShadow: `0 0 6px 2px ${p.color}`,
-            } as React.CSSProperties}
-          />
-        ))}
-      </div>
-
       <div className="relative w-full max-w-md bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-3 m-auto shadow-2xl text-stone-100">
 
         {/* a. Both hands, one row each, sorted, winning tile pinned rightmost with red glow.
@@ -185,6 +166,30 @@ export const WinModal: React.FC<WinModalProps> = ({
             繼續下局
           </button>
         )}
+      </div>
+
+      {/* Fireworks — rendered last (on top of the modal card, not just the backdrop) and
+          fixed to the viewport regardless of scroll, so the celebratory burst is always
+          visible: origins are randomized across the whole screen, and on tall/narrow phones
+          the modal card itself can cover almost the entire viewport, leaving no backdrop
+          area free for a "behind the modal" effect to actually be seen. Kept pointer-events-none
+          so it never blocks the tiles or the continue button underneath it. */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {particles.map(p => (
+          <div
+            key={p.id}
+            className="firework-particle"
+            style={{
+              '--fw-origin-x': p.originX,
+              '--fw-origin-y': p.originY,
+              '--fw-dx': `${p.dx}px`,
+              '--fw-dy': `${p.dy}px`,
+              '--fw-delay': `${p.delay}s`,
+              backgroundColor: p.color,
+              boxShadow: `0 0 6px 2px ${p.color}`,
+            } as React.CSSProperties}
+          />
+        ))}
       </div>
     </div>
   );
