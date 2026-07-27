@@ -3,3 +3,19 @@
 html, body {
   background-color: #064e3b;
 }
+
+@keyframes firework-burst {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--fw-dx), var(--fw-dy)) scale(0.15); opacity: 0; }
+}
+
+.firework-particle {
+  position: absolute;
+  top: var(--fw-origin-y);
+  left: var(--fw-origin-x);
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  animation: firework-burst 1100ms ease-out infinite;
+  animation-delay: var(--fw-delay);
+}

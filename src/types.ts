@@ -27,6 +27,7 @@ export interface PlayerState {
   score: number;
   isBanker: boolean;
   hasDeclaredReady?: boolean; // 聽牌
+  pendingDrawnTileId?: string | null; // most recently drawn tile, pinned at the end of the hand display until discarded
 }
 
 export interface GameState {
@@ -51,6 +52,8 @@ export interface GameState {
     totalFans: number;
     handSnapshot: Tile[];
     meldsSnapshot: Meld[];
+    playerAllTiles: Tile[]; // player's full hand (concealed + exposed melds) at round end, for reveal display
+    aiAllTiles: Tile[]; // AI's full hand (concealed + exposed melds) at round end, for reveal display
   } | null;
   logs: string[];
 }

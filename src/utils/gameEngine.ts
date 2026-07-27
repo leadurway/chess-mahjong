@@ -1,5 +1,20 @@
 import { Tile, TileColor, TileRole, GameMode, Meld, PlayerState, GameState } from '../types';
 
+// Canonical display order for a concealed hand: black pieces (將士象車馬包), then red
+// pieces (帥仕相車馬炮), with both sides' soldiers (兵/卒) trailing at the very end.
+const HAND_DISPLAY_ORDER: { color: TileColor; role: TileRole }[] = [
+  { color: 'black', role: '將' }, { color: 'black', role: '士' }, { color: 'black', role: '象' },
+  { color: 'black', role: '車' }, { color: 'black', role: '馬' }, { color: 'black', role: '包' },
+  { color: 'red', role: '帥' }, { color: 'red', role: '仕' }, { color: 'red', role: '相' },
+  { color: 'red', role: '車' }, { color: 'red', role: '馬' }, { color: 'red', role: '炮' },
+  { color: 'red', role: '兵' }, { color: 'black', role: '卒' },
+];
+
+export function sortHandForDisplay(hand: Tile[]): Tile[] {
+  const rank = (t: Tile) => HAND_DISPLAY_ORDER.findIndex(e => e.color === t.color && e.role === t.role);
+  return [...hand].sort((a, b) => rank(a) - rank(b));
+}
+
 // Generate a unique tile pool based on mode
 export function generateTilePool(mode: GameMode): Tile[] {
   const pool: Omit<Tile, 'id'>[] = [];

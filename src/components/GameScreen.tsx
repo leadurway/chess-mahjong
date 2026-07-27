@@ -12,7 +12,8 @@ import {
   getSelfKongOptions,
   getAIDiscard,
   calculateFans,
-  evaluateHand
+  evaluateHand,
+  sortHandForDisplay
 } from '../utils/gameEngine';
 import { RuleGuide } from './RuleGuide';
 import { WinModal } from './WinModal';
@@ -190,8 +191,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const handleAILoops = () => {
     const aiHand = [...gameState.ai.hand];
     const aiMelds = gameState.ai.melds;
-    const expectedIdleSize = gameState.mode === 32 ? 4 : 7;
-    const expectedStartSize = gameState.mode === 32 ? 5 : 8;
+    // Each exposed meld (pong/chow/kong all count as one "slot") shrinks the concealed
+    // hand by 3 relative to the full target — melding doesn't change the total structural
+    // count, it just moves 3 tiles from concealed into an exposed meld on the table.
+    const targetTotal = gameState.mode === 32 ? 5 : 8;
+    const expectedIdleSize = targetTotal - 1 - aiMelds.length * 3;
+    const expectedStartSize = targetTotal - aiMelds.length * 3;
 
     // AI just claimed a pong/chow off the player's discard — it already holds
     // the extra tile, so it must discard directly without drawing first.
@@ -344,7 +349,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setGameState(prev => ({
       ...prev,
       wall: updatedWall,
-      player: { ...prev.player, hand: updatedHand },
+      player: { ...prev.player, hand: updatedHand, pendingDrawnTileId: drawnTile.id },
       phase: 'waitingDiscard',
       logs: [...prev.logs, `你摸了一張：${drawnTile.color === 'red' ? '紅' : '黑'}${drawnTile.character}`],
     }));
@@ -360,7 +365,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
     const nextGameState: GameState = {
       ...gameState,
-      player: { ...gameState.player, hand: updatedHand, discards: updatedDiscards },
+      player: { ...gameState.player, hand: updatedHand, discards: updatedDiscards, pendingDrawnTileId: null },
       turn: 'ai',
       phase: 'aiThinking',
       lastDiscard: tileToDiscard,
@@ -418,6 +423,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         fans: [], totalFans: 0,
         handSnapshot: prev.player.hand,
         meldsSnapshot: prev.player.melds,
+        playerAllTiles: [...prev.player.hand, ...prev.player.melds.flatMap(m => m.tiles)],
+        aiAllTiles: [...prev.ai.hand, ...prev.ai.melds.flatMap(m => m.tiles)],
       }
     }));
   };
@@ -440,7 +447,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const newMeld: Meld = { type: 'pong', tiles: [...combo, d], discardSource: 'ai' };
       return {
         ...prev,
-        player: { ...prev.player, hand: updatedHand, melds: [...prev.player.melds, newMeld] },
+        player: { ...prev.player, hand: updatedHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: null },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: null,
@@ -471,7 +478,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const charString = newMeld.tiles.map(t => t.character).join('');
       return {
         ...prev,
-        player: { ...prev.player, hand: updatedHand, melds: [...prev.player.melds, newMeld] },
+        player: { ...prev.player, hand: updatedHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: null },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: null,
@@ -499,7 +506,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       return {
         ...prev,
         wall: updatedWall,
-        player: { ...prev.player, hand: finalHand, melds: [...prev.player.melds, newMeld] },
+        player: { ...prev.player, hand: finalHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: replacementTile?.id ?? null },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: null,
@@ -532,7 +539,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       return {
         ...prev,
         wall: updatedWall,
-        player: { ...prev.player, hand: finalHand, melds: updatedMelds },
+        player: { ...prev.player, hand: finalHand, melds: updatedMelds, pendingDrawnTileId: replacementTile?.id ?? null },
         logs,
       };
     });
@@ -541,8 +548,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const handlePlayerDeclareWin = () => {
     const playerHand = gameState.player.hand;
     const playerMelds = gameState.player.melds;
-    const targetWinSize = gameState.mode === 32 ? 5 : 8;
-    const targetIdleSize = gameState.mode === 32 ? 4 : 7;
+    // Each exposed meld shrinks the concealed hand by 3 relative to the full target.
+    const targetTotal = gameState.mode === 32 ? 5 : 8;
+    const targetWinSize = targetTotal - playerMelds.length * 3;
+    const targetIdleSize = targetWinSize - 1;
 
     if (playerHand.length === targetWinSize) {
       if (isWinningHand(playerHand, playerMelds)) {
@@ -574,16 +583,27 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const isFirstMove = gameState.player.discards.length === 0 && gameState.ai.discards.length === 0;
     const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, isSelfDraw, isFirstMove, winnerState.isBanker);
     const totalFans = fansCalculated.reduce((sum, f) => sum + f.value, 0);
+    const winnerAllTiles = [...finalConcealedHand, ...winnerState.melds.flatMap(m => m.tiles)];
 
-    setGameState(prev => ({
-      ...prev,
-      wall: updatedWall,
-      phase: 'gameOver',
-      player: { ...prev.player, score: prev.player.score + (isPlayer ? totalFans : -totalFans) },
-      ai: { ...prev.ai, score: prev.ai.score + (isPlayer ? -totalFans : totalFans) },
-      logs: [...prev.logs, `🎉 ${isPlayer ? '玩家' : '對手 AI'} 宣告胡牌 (${isSelfDraw ? '自摸' : '榮胡'})！共 ${totalFans} 台！`],
-      winInfo: { winner, winningTile, isSelfDraw, fans: fansCalculated, totalFans, handSnapshot: finalConcealedHand, meldsSnapshot: winnerState.melds },
-    }));
+    setGameState(prev => {
+      const loserAllTiles = isPlayer
+        ? [...prev.ai.hand, ...prev.ai.melds.flatMap(m => m.tiles)]
+        : [...prev.player.hand, ...prev.player.melds.flatMap(m => m.tiles)];
+      return {
+        ...prev,
+        wall: updatedWall,
+        phase: 'gameOver',
+        player: { ...prev.player, score: prev.player.score + (isPlayer ? totalFans : -totalFans) },
+        ai: { ...prev.ai, score: prev.ai.score + (isPlayer ? -totalFans : totalFans) },
+        logs: [...prev.logs, `🎉 ${isPlayer ? '玩家' : '對手 AI'} 宣告胡牌 (${isSelfDraw ? '自摸' : '榮胡'})！共 ${totalFans} 台！`],
+        winInfo: {
+          winner, winningTile, isSelfDraw, fans: fansCalculated, totalFans,
+          handSnapshot: finalConcealedHand, meldsSnapshot: winnerState.melds,
+          playerAllTiles: isPlayer ? winnerAllTiles : loserAllTiles,
+          aiAllTiles: isPlayer ? loserAllTiles : winnerAllTiles,
+        },
+      };
+    });
   };
 
   const handleReplay = () => {
@@ -627,7 +647,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     ? checkForPlayerInterrupts(gameState.lastDiscard, gameState)
     : { canWin: false, canPong: false, canEat: false, canKong: false };
 
-  const expectedWinSize = gameState.mode === 32 ? 5 : 8;
+  const expectedWinSize = (gameState.mode === 32 ? 5 : 8) - gameState.player.melds.length * 3;
   const isSelfDrawWinAvailable = gameState.player.hand.length === expectedWinSize &&
     isWinningHand(gameState.player.hand, gameState.player.melds);
 
@@ -639,22 +659,30 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const canDiscard = gameState.turn === 'player' && gameState.phase === 'waitingDiscard';
   const showActionPopup = gameState.phase === 'showMeldSelect' || selfKongOptions.length > 0 || isSelfDrawWinAvailable;
 
-  const renderMeldRow = (melds: Meld[], keyPrefix: string) => (
-    <div className="flex gap-2 overflow-x-auto mt-2 pt-2 border-t border-white/10">
-      {melds.map((meld, mIdx) => (
-        <div key={`${keyPrefix}_m_${mIdx}`} className="flex gap-1 shrink-0 relative pt-2">
-          <span className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-stone-950 text-[8px] font-black px-1 rounded shadow-sm z-10">
-            {meld.type === 'chow' ? '吃' : meld.type === 'pong' ? '碰' : '槓'}
-          </span>
-          {getMeldDisplayTiles(meld).map(({ tile, isTrigger }, tIdx) => (
-            <ChessTile
-              key={`${keyPrefix}_mt_${mIdx}_${tIdx}`}
-              tile={tile}
-              size="sm"
-              glow={meld.type === 'kong' && isTrigger ? 'red' : 'green'}
-            />
-          ))}
-        </div>
+  // Hand display order: sorted by role (將士象車馬包／帥仕相車馬炮／兵卒), except the most
+  // recently drawn tile, which stays pinned at the far right until it's discarded.
+  const pendingDrawnTile = gameState.player.pendingDrawnTileId
+    ? gameState.player.hand.find(t => t.id === gameState.player.pendingDrawnTileId) ?? null
+    : null;
+  const restOfPlayerHand = pendingDrawnTile
+    ? gameState.player.hand.filter(t => t.id !== pendingDrawnTile.id)
+    : gameState.player.hand;
+  const playerHandForDisplay = pendingDrawnTile
+    ? [...sortHandForDisplay(restOfPlayerHand), pendingDrawnTile]
+    : sortHandForDisplay(restOfPlayerHand);
+
+  const renderMeldGroup = (meld: Meld, keyPrefix: string, mIdx: number) => (
+    <div key={`${keyPrefix}_m_${mIdx}`} className="flex gap-1 shrink-0 relative pt-2">
+      <span className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-stone-950 text-[8px] font-black px-1 rounded shadow-sm z-10">
+        {meld.type === 'chow' ? '吃' : meld.type === 'pong' ? '碰' : '槓'}
+      </span>
+      {getMeldDisplayTiles(meld).map(({ tile, isTrigger }, tIdx) => (
+        <ChessTile
+          key={`${keyPrefix}_mt_${mIdx}_${tIdx}`}
+          tile={tile}
+          size="sm"
+          glow={meld.type === 'kong' && isTrigger ? 'red' : 'blue'}
+        />
       ))}
     </div>
   );
@@ -725,14 +753,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         </div>
       </div>
 
-      {/* ── ZONE B: AI HAND + MELDS ── */}
-      <div className="shrink-0 w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10">
-        <div className="grid grid-cols-8 gap-1">
+      {/* ── ZONE B: AI HAND + MELDS (newest meld → older melds → hand, left to right) ── */}
+      <div className="shrink-0 w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10 overflow-x-auto">
+        <div className="flex gap-1 items-center w-max">
+          {[...gameState.ai.melds].reverse().map((meld, idx) =>
+            renderMeldGroup(meld, 'ai', gameState.ai.melds.length - 1 - idx)
+          )}
           {gameState.ai.hand.map((tile, index) => (
-            <ChessTile key={`ai_h_${index}`} tile={tile} fill isFaceDown />
+            <ChessTile key={`ai_h_${index}`} tile={tile} size="sm" isFaceDown />
           ))}
         </div>
-        {gameState.ai.melds.length > 0 && renderMeldRow(gameState.ai.melds, 'ai')}
       </div>
 
       {/* ── ZONE C: AI DISCARDS ── */}
@@ -765,17 +795,20 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         </div>
       </div>
 
-      {/* ── ZONE E: PLAYER HAND + MELDS ── */}
-      <div className="shrink-0 w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10">
-        <div className="grid grid-cols-8 gap-1">
-          {gameState.player.hand.map((tile) => {
+      {/* ── ZONE E: PLAYER HAND + MELDS (newest meld → older melds → sorted hand, drawn tile pinned rightmost) ── */}
+      <div className="shrink-0 w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10 overflow-x-auto">
+        <div className="flex gap-1 items-center w-max">
+          {[...gameState.player.melds].reverse().map((meld, idx) =>
+            renderMeldGroup(meld, 'player', gameState.player.melds.length - 1 - idx)
+          )}
+          {playerHandForDisplay.map((tile) => {
             const isSelected = selectedTileId === tile.id;
             const canClick = gameState.phase === 'waitingDiscard' && gameState.turn === 'player';
             return (
               <ChessTile
                 key={tile.id}
                 tile={tile}
-                fill
+                size="sm"
                 isSelected={isSelected}
                 isClickable={canClick}
                 onClick={() => {
@@ -787,7 +820,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             );
           })}
         </div>
-        {gameState.player.melds.length > 0 && renderMeldRow(gameState.player.melds, 'player')}
       </div>
 
       {/* ── ZONE F: PLAYER INFO ── */}
@@ -819,13 +851,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}
               transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-              className="absolute bottom-full left-0 right-0 mb-1.5 mx-2 bg-stone-900/95 backdrop-blur border border-amber-500/30 rounded-2xl p-2.5 shadow-2xl z-30"
+              className="absolute bottom-full left-0 right-0 mb-1.5 mx-2 bg-stone-900/95 backdrop-blur border border-amber-500/30 rounded-2xl p-2 shadow-2xl z-30"
             >
-              <div className="flex flex-wrap gap-2 justify-center">
+              <div className="grid grid-cols-2 gap-2">
                 {gameState.phase === 'showMeldSelect' && interrupts.canEat && (
                   <button
                     onClick={handlePlayerEat}
-                    className="bg-sky-600 hover:bg-sky-700 active:scale-95 text-white font-bold font-serif text-base px-5 py-2.5 rounded-xl transition"
+                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
                   >
                     吃牌
                   </button>
@@ -833,7 +865,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 {gameState.phase === 'showMeldSelect' && interrupts.canPong && (
                   <button
                     onClick={handlePlayerPong}
-                    className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold font-serif text-base px-5 py-2.5 rounded-xl transition"
+                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
                   >
                     碰牌
                   </button>
@@ -841,7 +873,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 {gameState.phase === 'showMeldSelect' && interrupts.canKong && (
                   <button
                     onClick={handlePlayerKong}
-                    className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold font-serif text-base px-5 py-2.5 rounded-xl transition"
+                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
                   >
                     槓牌
                   </button>
@@ -849,7 +881,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 {selfKongOptions.length > 0 && (
                   <button
                     onClick={handlePlayerSelfKong}
-                    className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold font-serif text-base px-5 py-2.5 rounded-xl transition"
+                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
                   >
                     {selfKongOptions[0].isUpgrade ? '補槓' : '暗槓'}
                   </button>
@@ -857,15 +889,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 {((gameState.phase === 'showMeldSelect' && interrupts.canWin) || isSelfDrawWinAvailable) && (
                   <button
                     onClick={handlePlayerDeclareWin}
-                    className="bg-gradient-to-r from-red-600 to-amber-600 animate-pulse active:scale-95 text-white font-bold font-serif text-base px-6 py-2.5 rounded-xl shadow-xl shadow-red-900/40"
+                    className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
                   >
-                    🔥 胡 牌！
+                    🔥 胡牌！
                   </button>
                 )}
                 {gameState.phase === 'showMeldSelect' && (
                   <button
                     onClick={handlePlayerPass}
-                    className="bg-stone-800 hover:bg-stone-700 active:scale-95 text-stone-300 font-bold font-serif text-base px-5 py-2.5 rounded-xl transition border border-stone-700"
+                    className="h-16 rounded-2xl bg-stone-600 text-white font-black font-serif text-xl shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400 active:scale-95 transition"
                   >
                     過
                   </button>
@@ -882,14 +914,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             onClick={handlePlayerDraw}
             animate={canDraw ? { y: [0, -6, 0] } : { y: 0 }}
             transition={canDraw ? { repeat: Infinity, duration: 1.1 } : { duration: 0.2 }}
-            className={`flex-1 h-16 rounded-2xl font-bold font-serif text-lg transition-colors flex flex-col items-center justify-center gap-0.5 ${
+            className={`flex-1 h-16 rounded-2xl font-bold font-serif text-xl transition-colors flex items-center justify-center gap-2 ${
               canDraw
                 ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
                 : 'bg-stone-800/60 text-stone-500'
             }`}
           >
             <span>🀄 摸牌</span>
-            <span className="text-xs font-mono font-normal opacity-80">剩 {gameState.wall.length} 張</span>
+            <span className="text-yellow-300">{gameState.wall.length}張</span>
           </motion.button>
 
           <motion.button
@@ -901,7 +933,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             }}
             animate={canDiscard ? { y: [0, -6, 0] } : { y: 0 }}
             transition={canDiscard ? { repeat: Infinity, duration: 1.1 } : { duration: 0.2 }}
-            className={`flex-1 h-16 rounded-2xl font-bold font-serif text-lg transition-colors flex items-center justify-center ${
+            className={`flex-1 h-16 rounded-2xl font-bold font-serif text-xl transition-colors flex items-center justify-center ${
               canDiscard
                 ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
                 : 'bg-stone-800/60 text-stone-500'
@@ -1051,21 +1083,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── WIN/LOSE MODAL ── */}
       {gameState.phase === 'gameOver' && gameState.winInfo && gameState.winInfo.winner && (
-        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <WinModal
-            winner={gameState.winInfo.winner}
-            winningTile={gameState.winInfo.winningTile}
-            isSelfDraw={gameState.winInfo.isSelfDraw}
-            fans={gameState.winInfo.fans}
-            totalFans={gameState.winInfo.totalFans}
-            handSnapshot={gameState.winInfo.handSnapshot}
-            meldsSnapshot={gameState.winInfo.meldsSnapshot}
-            playerScore={gameState.player.score}
-            aiScore={gameState.ai.score}
-            onRestart={handleReplay}
-            onGoToMenu={onExit}
-          />
-        </div>
+        <WinModal
+          winner={gameState.winInfo.winner}
+          isSelfDraw={gameState.winInfo.isSelfDraw}
+          fans={gameState.winInfo.fans}
+          totalFans={gameState.winInfo.totalFans}
+          playerAllTiles={gameState.winInfo.playerAllTiles}
+          aiAllTiles={gameState.winInfo.aiAllTiles}
+          onRestart={handleReplay}
+        />
       )}
 
       {/* ── DRAW GAME MODAL ── */}
