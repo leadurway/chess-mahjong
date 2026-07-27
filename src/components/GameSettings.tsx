@@ -152,16 +152,16 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
               <button
                 type="button"
                 onClick={() => setPlayerIsBanker(true)}
-                className={`py-2 rounded-xl text-base border transition-all duration-200 cursor-pointer ${playerIsBanker ? SELECTED_BTN : UNSELECTED_BTN}`}
+                className={`py-2 rounded-xl text-base border transition-all duration-200 cursor-pointer whitespace-nowrap ${playerIsBanker ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 我是莊家 (摸 {mode === 32 ? 5 : 8} 張)
               </button>
               <button
                 type="button"
                 onClick={() => setPlayerIsBanker(false)}
-                className={`py-2 rounded-xl text-base border transition-all duration-200 cursor-pointer ${!playerIsBanker ? SELECTED_BTN : UNSELECTED_BTN}`}
+                className={`py-2 rounded-xl text-base border transition-all duration-200 cursor-pointer whitespace-nowrap ${!playerIsBanker ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
-                對手起莊 (對手拿 {mode === 32 ? 5 : 8} 張)
+                對手起莊 (對手{mode === 32 ? 5 : 8}張)
               </button>
             </div>
           </div>
@@ -173,7 +173,7 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
           <button
             type="button"
             onClick={() => onStartGame({ mode, difficulty, playerIsBanker, playerName: playerName.trim() || '玩家' })}
-            className="w-full bg-red-600 hover:bg-red-500 text-white font-serif font-extrabold text-lg py-3 rounded-xl transition duration-200 shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300 transform active:scale-95 cursor-pointer"
+            className="w-full bg-red-600 hover:bg-red-500 text-white font-serif font-extrabold text-xl py-4 rounded-xl transition duration-200 shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300 transform active:scale-95 cursor-pointer"
           >
             開始遊戲 (Play Game)
           </button>
