@@ -28,7 +28,7 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
   const blackZu: Tile = { id: 'demo14', color: 'black', role: '卒', character: '卒' };
 
   return (
-    <div className="bg-stone-900/95 text-stone-100 p-6 rounded-2xl border border-amber-500/20 max-w-4xl w-full mx-auto shadow-2xl overflow-y-auto max-h-[85vh] scrollbar-thin scrollbar-thumb-stone-700">
+    <div className="bg-stone-900/95 text-stone-100 p-6 rounded-2xl border border-amber-500/20 max-w-4xl w-full mx-auto shadow-2xl overflow-y-auto max-h-[85dvh] scrollbar-thin scrollbar-thumb-stone-700">
       <div className="flex justify-between items-center mb-6 border-b border-amber-500/20 pb-4">
         <h2 className="text-2xl font-bold font-serif text-amber-400 flex items-center gap-2">
           🀄 象棋麻將 遊戲規則說明

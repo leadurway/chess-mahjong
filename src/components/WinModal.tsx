@@ -86,9 +86,9 @@ export const WinModal: React.FC<WinModalProps> = ({
   const playerReveal = getRevealTiles(playerAllTiles, isPlayerWin ? winningTile : null);
 
   return (
-    <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-3 overflow-hidden">
-      {/* Fireworks background */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    <div className="fixed inset-0 bg-black/85 z-50 overflow-y-auto p-3 flex justify-center items-start">
+      {/* Fireworks background — fixed to the viewport regardless of modal scroll position */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
         {particles.map(p => (
           <div
             key={p.id}
@@ -106,26 +106,26 @@ export const WinModal: React.FC<WinModalProps> = ({
         ))}
       </div>
 
-      <div className="relative w-full max-w-md bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-5 shadow-2xl text-stone-100">
+      <div className="relative w-full max-w-md bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-3 my-3 shadow-2xl text-stone-100">
 
         {/* a. Both hands, one row each, sorted, winning tile pinned rightmost with red glow */}
         <div className="space-y-3 mb-4">
           <div>
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">🤖 電腦手牌</span>
-            <div className="flex gap-1 bg-stone-950 rounded-xl p-2 border border-stone-800 overflow-x-auto">
+            <div className="flex gap-1 bg-stone-950 rounded-xl p-1 border border-stone-800 overflow-x-auto">
               {aiReveal.map(({ tile, isWinningTile }, idx) => (
                 <div key={`ai_${idx}`} className="shrink-0">
-                  <ChessTile tile={tile} size="sm" glow={isWinningTile ? 'red' : undefined} />
+                  <ChessTile tile={tile} size="xs" glow={isWinningTile ? 'red' : undefined} />
                 </div>
               ))}
             </div>
           </div>
           <div>
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">👤 玩家手牌</span>
-            <div className="flex gap-1 bg-stone-950 rounded-xl p-2 border border-stone-800 overflow-x-auto">
+            <div className="flex gap-1 bg-stone-950 rounded-xl p-1 border border-stone-800 overflow-x-auto">
               {playerReveal.map(({ tile, isWinningTile }, idx) => (
                 <div key={`p_${idx}`} className="shrink-0">
-                  <ChessTile tile={tile} size="sm" glow={isWinningTile ? 'red' : undefined} />
+                  <ChessTile tile={tile} size="xs" glow={isWinningTile ? 'red' : undefined} />
                 </div>
               ))}
             </div>
@@ -134,10 +134,10 @@ export const WinModal: React.FC<WinModalProps> = ({
 
         {/* b. Win message box — same color scheme as the active draw button, height reduced to 60% */}
         <div className="w-full h-[86px] mb-4 rounded-2xl bg-red-600 text-white shadow-[0_0_24px_8px_rgba(220,38,38,0.55)] ring-2 ring-red-300 flex flex-col items-center justify-center">
-          <span className="text-2xl font-serif font-black">
+          <span className="text-3xl font-serif font-black">
             {isPlayerWin ? '玩家' : '電腦'} {isSelfDraw ? '自摸' : '胡牌'}！
           </span>
-          <span className="text-xs mt-0.5 opacity-90">{isPlayerWin ? '🌟 恭喜獲勝！' : '💀 對手胡牌了'}</span>
+          <span className="text-sm mt-0.5 opacity-90">{isPlayerWin ? '🌟 恭喜獲勝！' : '💀 對手胡牌了'}</span>
         </div>
 
         {/* c. Fan / score calculation */}
@@ -163,7 +163,7 @@ export const WinModal: React.FC<WinModalProps> = ({
         {showContinue && (
           <button
             onClick={onRestart}
-            className="w-full h-[86px] rounded-2xl bg-yellow-400 text-black font-serif font-black text-xl shadow-[0_0_24px_8px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+            className="w-full h-[86px] rounded-2xl bg-yellow-400 text-black font-serif font-black text-3xl shadow-[0_0_24px_8px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
           >
             繼續下局
           </button>

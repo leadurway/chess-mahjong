@@ -43,11 +43,13 @@ export const ChessTile: React.FC<ChessTileProps> = ({
 
   const textStyle = isRed ? 'text-[#b91c1c]' : 'text-[#111827]';
 
-  // Face-down back, always sized to fill whatever box contains it (w-full h-full).
+  // Face-down back: a generic tile-back lattice pattern (no character), blue-toned.
   const backContent = (
-    <div className="w-full h-full relative rounded-full flex items-center justify-center bg-[#10b981] border-2 border-[#047857] shadow-[inset_0_0_10px_rgba(0,0,0,0.25),0_3px_6px_rgba(0,0,0,0.3)] select-none overflow-hidden">
-      <div className="absolute inset-[8%] border border-dashed border-emerald-300/50 rounded-full opacity-60" />
-      <span className="text-emerald-100/80 font-serif font-bold select-none" style={{ fontSize: '55%' }}>象</span>
+    <div className="w-full h-full relative rounded-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800 border-2 border-blue-950 shadow-[inset_0_0_10px_rgba(0,0,0,0.3),0_3px_6px_rgba(0,0,0,0.3)] select-none overflow-hidden">
+      <div className="absolute inset-[10%] rounded-full border-2 border-blue-300/70" />
+      <div className="absolute inset-[24%] rounded-full border border-blue-200/60" />
+      <div className="absolute inset-[38%] rounded-full bg-blue-300/40" />
+      <div className="absolute inset-[45%] rounded-full bg-blue-100/70" />
     </div>
   );
 

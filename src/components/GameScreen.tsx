@@ -32,14 +32,28 @@ interface GameScreenProps {
 // completed a kong) is always appended last by construction — see handlePlayerPong/executeEat/
 // handlePlayerKong/handlePlayerSelfKong and their AI equivalents below. Display wants that tile
 // centered, flanked by the tiles that were already in the concealed hand.
-function getMeldDisplayTiles(meld: Meld): { tile: Tile; isTrigger: boolean }[] {
+//
+// Kongs are visually compressed to 3 tiles instead of their real 4 (the 4th is redundant since
+// all 4 are identical) — an open kong (明槓: direct-discard claim or a pong upgraded via a drawn
+// 4th tile) shows all 3 face up; a concealed kong (暗槓: discardSource 'self') shows only the
+// center tile, with the two flanking tiles face down.
+function getMeldDisplayTiles(meld: Meld): { tile: Tile; isTrigger: boolean; isFaceDown: boolean }[] {
   const tiles = meld.tiles;
   const trigger = tiles[tiles.length - 1];
   const others = tiles.slice(0, tiles.length - 1);
-  const ordered = others.length === 2
-    ? [others[0], trigger, others[1]]
-    : [others[0], trigger, others[1], others[2]];
-  return ordered.map(t => ({ tile: t, isTrigger: t.id === trigger.id }));
+
+  if (meld.type === 'kong') {
+    const isConcealed = meld.discardSource === 'self';
+    const [a, b] = others;
+    return [
+      { tile: a, isTrigger: false, isFaceDown: isConcealed },
+      { tile: trigger, isTrigger: true, isFaceDown: false },
+      { tile: b, isTrigger: false, isFaceDown: isConcealed },
+    ];
+  }
+
+  const ordered = [others[0], trigger, others[1]];
+  return ordered.map(t => ({ tile: t, isTrigger: t.id === trigger.id, isFaceDown: false }));
 }
 
 function useIsLandscape(): boolean {
@@ -715,11 +729,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const renderMeldGroup = (meld: Meld, keyPrefix: string, mIdx: number) => (
     <div key={`${keyPrefix}_m_${mIdx}`} className="flex gap-1 shrink-0">
-      {getMeldDisplayTiles(meld).map(({ tile, isTrigger }, tIdx) => (
+      {getMeldDisplayTiles(meld).map(({ tile, isTrigger, isFaceDown }, tIdx) => (
         <ChessTile
           key={`${keyPrefix}_mt_${mIdx}_${tIdx}`}
           tile={tile}
           size="hand"
+          isFaceDown={isFaceDown}
           glow={meld.type === 'kong' && isTrigger ? 'red' : 'blue'}
         />
       ))}
@@ -739,6 +754,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // both keep at least one row's worth of height reserved even under heavy vertical squeeze.
   const discardTileSize = isLandscape ? 'handHalf' : 'hand';
   const discardMinHeightClass = isLandscape ? 'min-h-9' : 'min-h-14';
+  // Portrait discards line up in a fixed 8-per-row grid, same tile size as the hand.
+  const discardGridWidthPx = 8 * HAND_TILE_PX + 7 * HAND_GAP_PX;
 
   const aiAvatarName = (
     <div className="flex items-center gap-2 shrink-0">
@@ -958,7 +975,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── AI DISCARDS ── */}
       <div className={`flex-1 ${discardMinHeightClass} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}>
-        <div className="flex flex-wrap gap-1 content-start">
+        <div
+          className={isLandscape ? 'flex flex-wrap gap-1 content-start' : 'grid gap-1 content-start mx-auto'}
+          style={!isLandscape ? { gridTemplateColumns: `repeat(8, ${HAND_TILE_PX}px)`, width: `${discardGridWidthPx}px` } : undefined}
+        >
           {gameState.ai.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'ai' && gameState.lastDiscard?.id === tile.id;
             return (
@@ -973,7 +993,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── PLAYER DISCARDS ── */}
       <div className={`flex-1 ${discardMinHeightClass} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}>
-        <div className="flex flex-wrap gap-1 content-start">
+        <div
+          className={isLandscape ? 'flex flex-wrap gap-1 content-start' : 'grid gap-1 content-start mx-auto'}
+          style={!isLandscape ? { gridTemplateColumns: `repeat(8, ${HAND_TILE_PX}px)`, width: `${discardGridWidthPx}px` } : undefined}
+        >
           {gameState.player.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'player' && gameState.lastDiscard?.id === tile.id;
             return (
@@ -1147,7 +1170,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── EAT COMBO SELECTION MODAL ── */}
       {showEatSelections && pendingEatCombos && (
         <div className="fixed inset-0 bg-black/75 flex items-end justify-center z-50 p-0 backdrop-blur-sm">
-          <div className="bg-stone-900 border border-amber-500/20 rounded-t-3xl p-6 w-full shadow-2xl">
+          <div className="bg-stone-900 border border-amber-500/20 rounded-t-3xl p-6 w-full shadow-2xl max-h-[85dvh] overflow-y-auto">
             <h3 className="text-base font-bold font-serif text-amber-400 mb-1 text-center">選擇吃牌組合</h3>
             <p className="text-stone-400 text-[11px] mb-4 text-center">有多組匹配方案，請選一組：</p>
             <div className="space-y-2.5 mb-4">
@@ -1205,7 +1228,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── DRAW GAME MODAL ── */}
       {gameState.phase === 'gameOver' && gameState.winInfo && !gameState.winInfo.winner && (
         <div className="fixed inset-0 bg-black/80 flex items-end justify-center z-50 p-0">
-          <div className="bg-stone-900 border-t border-stone-700 rounded-t-3xl p-8 w-full shadow-2xl text-center">
+          <div className="bg-stone-900 border-t border-stone-700 rounded-t-3xl p-8 w-full shadow-2xl text-center max-h-[85dvh] overflow-y-auto">
             <span className="text-4xl">🏁</span>
             <h2 className="text-xl font-serif font-bold text-stone-300 mt-3 mb-1">流局結算</h2>
             <p className="text-stone-500 text-xs mb-6">底牌已摸光，雙方均未胡牌。</p>
