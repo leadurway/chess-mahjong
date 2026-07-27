@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { GameMode, Difficulty } from '../types';
 import { RuleGuide } from './RuleGuide';
+import liangLogo from '../assets/liang-logo.png';
 
 interface GameSettingsProps {
   onStartGame: (config: { mode: GameMode; difficulty: Difficulty; playerIsBanker: boolean }) => void;
 }
+
+const SELECTED_BTN =
+  'bg-yellow-400 border-yellow-200 text-black font-black shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200';
+const UNSELECTED_BTN = 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80';
 
 export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
   const [mode, setMode] = useState<GameMode>(32);
@@ -13,7 +18,13 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
   const [showRules, setShowRules] = useState<boolean>(false);
 
   return (
-    <div className="min-h-screen bg-[#064e3b] flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
+    <div
+      className="h-[100dvh] bg-[#064e3b] flex flex-col items-center justify-center p-6 relative overflow-x-hidden overflow-y-auto font-sans"
+      style={{
+        paddingTop: 'max(1.5rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+      }}
+    >
       {/* Decorative background grids */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#fbbf24_1px,transparent_1px)] [background-size:24px_24px]"></div>
       
@@ -30,9 +41,16 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
             <span className="text-4xl font-serif font-black text-[#b91c1c] drop-shadow-[0_1px_1px_rgba(255,255,255,0.15)]">帥</span>
             <span className="text-4xl font-serif font-black text-emerald-200 -ml-1 drop-shadow-[0_1px_1px_rgba(255,255,255,0.15)]">將</span>
           </div>
-          <h1 className="text-3xl font-extrabold text-amber-250 font-serif tracking-widest leading-relaxed">
-            象棋麻將
-          </h1>
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="text-3xl font-extrabold text-amber-250 font-serif tracking-widest leading-relaxed">
+              象棋麻將
+            </h1>
+            <img
+              src={liangLogo}
+              alt="諒 LIANG GAME"
+              className="w-9 h-9 rounded-full border border-amber-400/50 shadow-md object-cover shrink-0"
+            />
+          </div>
           <p className="text-white/60 text-xs mt-1 font-mono tracking-wider">
             CHINESE CHESS MAHJONG SIMULATOR
           </p>
@@ -50,43 +68,28 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
               <button
                 type="button"
                 onClick={() => setMode(32)}
-                className={`
-                  py-2.5 px-2 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer
-                  ${mode === 32 
-                    ? 'bg-amber-500 border-amber-400 text-[#064e3b] font-black shadow-lg shadow-amber-500/20' 
-                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'}
-                `}
+                className={`py-2.5 px-2 rounded-xl text-sm border transition-all duration-200 cursor-pointer ${mode === 32 ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 32 子 (經典)
-                <span className="block text-[9px] opacity-70 font-normal">單一副象棋</span>
+                <span className="block text-[11px] opacity-80 font-normal">單一副象棋</span>
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => setMode(56)}
-                className={`
-                  py-2.5 px-2 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer
-                  ${mode === 56 
-                    ? 'bg-amber-500 border-amber-400 text-[#064e3b] font-black shadow-lg shadow-amber-500/20' 
-                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'}
-                `}
+                className={`py-2.5 px-2 rounded-xl text-sm border transition-all duration-200 cursor-pointer ${mode === 56 ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 56 子 (中等)
-                <span className="block text-[9px] opacity-70 font-normal">中位混合版</span>
+                <span className="block text-[11px] opacity-80 font-normal">中位混合版</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setMode(64)}
-                className={`
-                  py-2.5 px-2 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer
-                  ${mode === 64 
-                    ? 'bg-amber-500 border-amber-400 text-[#064e3b] font-black shadow-lg shadow-amber-500/20' 
-                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'}
-                `}
+                className={`py-2.5 px-2 rounded-xl text-sm border transition-all duration-200 cursor-pointer ${mode === 64 ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 64 子 (雙副)
-                <span className="block text-[9px] opacity-70 font-normal">兩副完整棋</span>
+                <span className="block text-[11px] opacity-80 font-normal">兩副完整棋</span>
               </button>
             </div>
             <p className="text-white/40 text-[10px] mt-2 leading-relaxed">
@@ -105,24 +108,14 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
               <button
                 type="button"
                 onClick={() => setDifficulty('easy')}
-                className={`
-                  py-2 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer
-                  ${difficulty === 'easy' 
-                    ? 'bg-[#fdfcf0] border-[#d1d5db] text-[#111827] font-black shadow-md' 
-                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'}
-                `}
+                className={`py-2.5 rounded-xl text-sm border transition-all duration-200 cursor-pointer ${difficulty === 'easy' ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 輕鬆對戰 (Easy AI)
               </button>
               <button
                 type="button"
                 onClick={() => setDifficulty('hard')}
-                className={`
-                  py-2 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer
-                  ${difficulty === 'hard' 
-                    ? 'bg-[#b91c1c] border-rose-500 text-white font-black shadow-lg shadow-rose-950/40' 
-                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'}
-                `}
+                className={`py-2.5 rounded-xl text-sm border transition-all duration-200 cursor-pointer ${difficulty === 'hard' ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 象棋大師 (Hard AI)
               </button>
@@ -138,24 +131,14 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
               <button
                 type="button"
                 onClick={() => setPlayerIsBanker(true)}
-                className={`
-                  py-2 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer
-                  ${playerIsBanker 
-                    ? 'border-amber-400 text-amber-300 bg-amber-500/10' 
-                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'}
-                `}
+                className={`py-2.5 rounded-xl text-sm border transition-all duration-200 cursor-pointer ${playerIsBanker ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 我是莊家 (摸 {mode === 32 ? 5 : 8} 張)
               </button>
               <button
                 type="button"
                 onClick={() => setPlayerIsBanker(false)}
-                className={`
-                  py-2 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer
-                  ${!playerIsBanker 
-                    ? 'border-amber-400 text-amber-400 bg-amber-500/10' 
-                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'}
-                `}
+                className={`py-2.5 rounded-xl text-sm border transition-all duration-200 cursor-pointer ${!playerIsBanker ? SELECTED_BTN : UNSELECTED_BTN}`}
               >
                 對手起莊 (對手拿 {mode === 32 ? 5 : 8} 張)
               </button>

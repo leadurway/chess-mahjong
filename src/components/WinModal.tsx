@@ -10,6 +10,8 @@ interface WinModalProps {
   totalFans: number;
   handSnapshot: Tile[];
   meldsSnapshot: Meld[];
+  playerScore: number;
+  aiScore: number;
   onRestart: () => void;
   onGoToMenu: () => void;
 }
@@ -22,6 +24,8 @@ export const WinModal: React.FC<WinModalProps> = ({
   totalFans,
   handSnapshot,
   meldsSnapshot,
+  playerScore,
+  aiScore,
   onRestart,
   onGoToMenu,
 }) => {
@@ -127,6 +131,23 @@ export const WinModal: React.FC<WinModalProps> = ({
               無特殊台數組合。
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Updated cumulative score */}
+      <div className="bg-stone-850/60 rounded-2xl p-4 border border-stone-800 mb-6 flex items-center justify-around text-sm">
+        <div className="text-center">
+          <span className="text-[10px] text-stone-500 block uppercase font-semibold">你的積分</span>
+          <span className={`font-mono font-black text-lg ${playerScore >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {playerScore >= 0 ? '+' : ''}{playerScore}
+          </span>
+        </div>
+        <div className="text-stone-700">vs</div>
+        <div className="text-center">
+          <span className="text-[10px] text-stone-500 block uppercase font-semibold">對手積分</span>
+          <span className={`font-mono font-black text-lg ${aiScore >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {aiScore >= 0 ? '+' : ''}{aiScore}
+          </span>
         </div>
       </div>
 

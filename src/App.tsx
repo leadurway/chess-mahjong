@@ -19,7 +19,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col justify-between">
+    <div className="h-[100dvh] bg-[#064e3b] text-stone-100 flex flex-col justify-between">
       {activeGameConfig ? (
         <GameScreen
           mode={activeGameConfig.mode}

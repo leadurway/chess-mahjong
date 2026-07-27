@@ -369,6 +369,27 @@ export function getKongCombinations(hand: Tile[], exposedMelds: Meld[], discard:
   return kongs;
 }
 
+// A self-declared kong made on your own turn (no discard involved): either a concealed
+// kong (暗槓, 4 identical tiles drawn into a fresh hand) or a supplement kong (補槓,
+// upgrading an existing exposed pong with a newly-drawn 4th tile).
+export interface SelfKongOption {
+  tiles: Tile[];
+  isUpgrade: boolean;
+  upgradeMeldIndex: number; // index into exposedMelds being upgraded, -1 when concealed
+}
+
+export function getSelfKongOptions(hand: Tile[], exposedMelds: Meld[]): SelfKongOption[] {
+  const combos = getKongCombinations(hand, exposedMelds, null);
+  return combos.map(combo => {
+    const tilesStillInHand = combo.filter(t => hand.some(h => h.id === t.id));
+    const isUpgrade = tilesStillInHand.length === 1;
+    const upgradeMeldIndex = isUpgrade
+      ? exposedMelds.findIndex(m => m.type === 'pong' && m.tiles.some(mt => combo.some(c => c.id === mt.id)))
+      : -1;
+    return { tiles: combo, isUpgrade, upgradeMeldIndex };
+  });
+}
+
 // Score calculation (台數)
 export function calculateFans(
   concealedHand: Tile[],
@@ -387,8 +408,9 @@ export function calculateFans(
     fans.push({ name: '自摸 (Self Draw)', value: 1 });
   }
 
-  // Concealed Hand
-  if (exposedMelds.length === 0) {
+  // Concealed Hand — a self-declared concealed kong (暗槓) doesn't break 門清.
+  const nonConcealedMelds = exposedMelds.filter(m => !(m.type === 'kong' && m.discardSource === 'self'));
+  if (nonConcealedMelds.length === 0) {
     fans.push({ name: '門清 (Concealed Hand)', value: 1 });
   }
 

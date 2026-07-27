@@ -34,6 +34,7 @@ export interface GameState {
   difficulty: Difficulty;
   round: number;
   dealerIndex: number; // 0 for player, 1 for AI
+  dealerStreak: number; // consecutive rounds the current dealer has held the seat (連莊)
   wall: Tile[]; // Draw pile/wall
   player: PlayerState;
   ai: PlayerState;
