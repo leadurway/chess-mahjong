@@ -25,9 +25,10 @@ const SIZE_CLASSES: Record<NonNullable<ChessTileProps['size']>, { box: string; f
   md: { box: 'w-12', font: 'text-xl' },
   lg: { box: 'w-16', font: 'text-3xl' },
   xl: { box: 'w-20', font: 'text-4xl' },
-  // Win-modal hand reveal: sized so all 8 tiles fit edge-to-edge on the narrowest supported
-  // phone width without clipping, while still being noticeably larger than the old "xs".
-  winReveal: { box: 'w-[38px]', font: 'text-base' },
+  // Win-modal hand reveal: fluid width (the grid column, not a fixed px, sets the actual size)
+  // so the row always fills its container exactly with no leftover side gaps on any screen,
+  // and the character scales with it via a container-query font size.
+  winReveal: { box: 'w-full', font: 'text-[45cqw]' },
 };
 
 export const ChessTile: React.FC<ChessTileProps> = ({
@@ -62,12 +63,14 @@ export const ChessTile: React.FC<ChessTileProps> = ({
     </div>
   );
 
-  // Face-up card, always sized to fill whatever box contains it (w-full h-full).
+  // Face-up card, always sized to fill whatever box contains it (w-full h-full). `@container`
+  // lets the character span below use a container-query font size, so it scales correctly
+  // even when this tile's own box is fluid-width (e.g. a CSS grid column) rather than fixed px.
   const faceContent = (
     <div
       className={`
         w-full h-full relative rounded-full flex items-center justify-center select-none
-        border-2 bg-[#fdfcf0] border-[#d1d5db] transition-shadow
+        border-2 bg-[#fdfcf0] border-[#d1d5db] transition-shadow @container
         ${isSelected ? 'ring-4 ring-yellow-400 shadow-[0_0_14px_4px_rgba(250,204,21,0.75)]' : ''}
       `}
     >

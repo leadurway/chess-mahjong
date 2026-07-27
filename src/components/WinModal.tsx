@@ -86,7 +86,10 @@ export const WinModal: React.FC<WinModalProps> = ({
   const playerReveal = getRevealTiles(playerAllTiles, isPlayerWin ? winningTile : null);
 
   return (
-    <div className="fixed inset-0 bg-black/85 z-50 overflow-y-auto p-3 flex justify-center items-start">
+    // flex-col + a lone `m-auto` child (below) centers the modal both ways when it fits the
+    // viewport, but degrades to natural top-aligned flow — not a broken/clipped-off overflow —
+    // once content is taller than the screen (landscape phones), so overflow-y-auto keeps working.
+    <div className="fixed inset-0 bg-black/85 z-50 overflow-y-auto p-3 flex flex-col">
       {/* Fireworks background — fixed to the viewport regardless of modal scroll position */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         {particles.map(p => (
@@ -106,27 +109,31 @@ export const WinModal: React.FC<WinModalProps> = ({
         ))}
       </div>
 
-      <div className="relative w-full max-w-md bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-3 my-3 shadow-2xl text-stone-100">
+      <div className="relative w-full max-w-md bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-3 m-auto shadow-2xl text-stone-100">
 
-        {/* a. Both hands, one row each, sorted, winning tile pinned rightmost with red glow */}
+        {/* a. Both hands, one row each, sorted, winning tile pinned rightmost with red glow.
+            Grid columns (not fixed tile widths) so the row always fills the exact available
+            width edge-to-edge, on every screen size, instead of leaving leftover side gaps. */}
         <div className="space-y-3 mb-4">
           <div>
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">🤖 電腦手牌</span>
-            <div className="-mx-3 flex gap-0.5 justify-center bg-stone-950 p-1 border-y border-stone-800 overflow-x-auto">
+            <div
+              className="-mx-3 grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800"
+              style={{ gridTemplateColumns: `repeat(${aiReveal.length}, minmax(0, 1fr))` }}
+            >
               {aiReveal.map(({ tile, isWinningTile }, idx) => (
-                <div key={`ai_${idx}`} className="shrink-0">
-                  <ChessTile tile={tile} size="winReveal" glow={isWinningTile ? 'red' : undefined} />
-                </div>
+                <ChessTile key={`ai_${idx}`} tile={tile} size="winReveal" glow={isWinningTile ? 'red' : undefined} />
               ))}
             </div>
           </div>
           <div>
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">👤 玩家手牌</span>
-            <div className="-mx-3 flex gap-0.5 justify-center bg-stone-950 p-1 border-y border-stone-800 overflow-x-auto">
+            <div
+              className="-mx-3 grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800"
+              style={{ gridTemplateColumns: `repeat(${playerReveal.length}, minmax(0, 1fr))` }}
+            >
               {playerReveal.map(({ tile, isWinningTile }, idx) => (
-                <div key={`p_${idx}`} className="shrink-0">
-                  <ChessTile tile={tile} size="winReveal" glow={isWinningTile ? 'red' : undefined} />
-                </div>
+                <ChessTile key={`p_${idx}`} tile={tile} size="winReveal" glow={isWinningTile ? 'red' : undefined} />
               ))}
             </div>
           </div>
