@@ -114,11 +114,13 @@ export const WinModal: React.FC<WinModalProps> = ({
   const slotCount = mode === 32 ? 5 : 8;
 
   return (
-    // flex-col + a lone `m-auto` child (below) centers the modal both ways when it fits the
-    // viewport, but degrades to natural top-aligned flow — not a broken/clipped-off overflow —
-    // once content is taller than the screen (landscape phones), so overflow-y-auto keeps working.
-    <div className="fixed inset-0 bg-black/85 z-50 overflow-y-auto p-3 flex flex-col">
-      <div className="relative w-full max-w-md bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-3 m-auto shadow-2xl text-stone-100">
+    // Same pattern as RuleGuide/draw-game modal: the OUTER layer just centers (no scroll of
+    // its own), and the INNER card is height-capped to 85dvh with its own overflow-y-auto —
+    // unlike having the outermost fixed layer itself be the scroll container, this is the
+    // proven-reliable pattern for iOS Safari (an earlier version of this modal used the
+    // outer-scrolls approach and couldn't be scrolled at all in iPhone landscape).
+    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3">
+      <div className="relative w-full max-w-md max-h-[85dvh] overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-3 shadow-2xl text-stone-100">
 
         {/* a. Both hands, one row each: exposed melds (same chow/pong/kong glow + kong tile-
             compression as the live game) first, then the sorted concealed tiles with the
