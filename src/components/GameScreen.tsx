@@ -153,6 +153,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [pendingEatCombos, setPendingEatCombos] = useState<Tile[][] | null>(null);
   const [showEatSelections, setShowEatSelections] = useState<boolean>(false);
+  // Self-kong / self-draw-win popups (offered on the player's own turn, not via
+  // showMeldSelect) don't have a game-state phase to "pass" back into — they're just an
+  // optional offer alongside the otherwise-normal waitingDiscard turn. This tracks whether
+  // the player dismissed that offer with 過, and resets whenever a new tile is drawn so the
+  // next opportunity (if any) is offered fresh.
+  const [ownTurnOfferDismissed, setOwnTurnOfferDismissed] = useState<boolean>(false);
 
   // Auto-scroll logs when log panel is open
   useEffect(() => {
@@ -165,6 +171,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   useEffect(() => {
     savePlayerProfile({ name: playerName, score: gameState.player.score });
   }, [playerName, gameState.player.score]);
+
+  useEffect(() => {
+    setOwnTurnOfferDismissed(false);
+  }, [gameState.player.pendingDrawnTileId]);
 
   // AI trigger
   useEffect(() => {
@@ -769,7 +779,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const canDraw = gameState.turn === 'player' && gameState.phase === 'drawing';
   const canDiscard = gameState.turn === 'player' && gameState.phase === 'waitingDiscard';
-  const showActionPopup = gameState.phase === 'showMeldSelect' || selfKongOptions.length > 0 || isSelfDrawWinAvailable;
+  const showOwnTurnOffer = !ownTurnOfferDismissed && (selfKongOptions.length > 0 || isSelfDrawWinAvailable);
+  const showActionPopup = gameState.phase === 'showMeldSelect' || showOwnTurnOffer;
 
   // Hand display order: sorted by role (將士象車馬包／帥仕相車馬炮／兵卒), except the most
   // recently drawn tile, which stays pinned at the far right until it's discarded.
@@ -951,9 +962,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             🔥 胡牌！
           </button>
         )}
-        {gameState.phase === 'showMeldSelect' && (
+        {showActionPopup && (
           <button
-            onClick={handlePlayerPass}
+            onClick={() => {
+              if (gameState.phase === 'showMeldSelect') handlePlayerPass();
+              else setOwnTurnOfferDismissed(true);
+            }}
             className="h-16 rounded-2xl bg-stone-600 text-white font-black font-serif text-xl shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400 active:scale-95 transition"
           >
             過
