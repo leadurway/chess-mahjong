@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChessTile } from './ChessTile';
-import { Tile, GameMode } from '../types';
-import { sortHandForDisplay } from '../utils/gameEngine';
+import { Tile, Meld, GameMode } from '../types';
+import { sortHandForDisplay, getMeldDisplayTiles } from '../utils/gameEngine';
 
 interface WinModalProps {
   winner: 'player' | 'ai';
@@ -9,15 +9,17 @@ interface WinModalProps {
   isSelfDraw: boolean;
   fans: Array<{ name: string; value: number }>;
   totalFans: number;
-  playerAllTiles: Tile[];
-  aiAllTiles: Tile[];
+  playerConcealedTiles: Tile[];
+  aiConcealedTiles: Tile[];
+  playerMelds: Meld[];
+  aiMelds: Meld[];
   mode: GameMode;
   onRestart: () => void;
 }
 
 const FIREWORK_COLORS = ['#fbbf24', '#ef4444', '#34d399', '#60a5fa', '#f472b6', '#ffffff'];
 
-function useFireworkParticles(burstCount = 6, particlesPerBurst = 10) {
+function useFireworkParticles(burstCount = 10, particlesPerBurst = 16) {
   return useMemo(() => {
     const particles: {
       id: string;
@@ -34,7 +36,7 @@ function useFireworkParticles(burstCount = 6, particlesPerBurst = 10) {
       const burstDelay = Math.random() * 2;
       for (let p = 0; p < particlesPerBurst; p++) {
         const angle = (p / particlesPerBurst) * Math.PI * 2 + Math.random() * 0.3;
-        const distance = 40 + Math.random() * 50;
+        const distance = 60 + Math.random() * 90;
         particles.push({
           id: `fw_${b}_${p}`,
           originX,
@@ -50,18 +52,33 @@ function useFireworkParticles(burstCount = 6, particlesPerBurst = 10) {
   }, []);
 }
 
-// Sorted tiles for reveal display; if this side holds the winning tile, it's pulled
-// out of the sort and pinned at the far right with a red glow (mirrors the live
-// "pinned drawn tile" convention).
-function getRevealTiles(allTiles: Tile[], winningTile: Tile | null) {
-  if (!winningTile || !allTiles.some(t => t.id === winningTile.id)) {
-    return sortHandForDisplay(allTiles).map(tile => ({ tile, isWinningTile: false }));
+interface RevealCell {
+  tile: Tile;
+  isFaceDown: boolean;
+  glow?: 'blue' | 'red';
+}
+
+// Builds the reveal row exactly like the live game's hand+meld frame: exposed melds first
+// (with the same blue/red glow and kong tile-compression treatment as renderMeldGroup in
+// GameScreen.tsx), then the sorted concealed tiles, with the winning tile — if it's part of
+// this side's concealed hand — pulled out and pinned at the far right with a red glow.
+function buildRevealCells(concealedHand: Tile[], melds: Meld[], winningTile: Tile | null): RevealCell[] {
+  const meldCells: RevealCell[] = [...melds].reverse().flatMap(meld =>
+    getMeldDisplayTiles(meld).map(({ tile, isTrigger, isFaceDown }): RevealCell => ({
+      tile,
+      isFaceDown,
+      glow: meld.type === 'kong' && isTrigger ? 'red' : 'blue',
+    }))
+  );
+
+  const winningTileInHand = winningTile && concealedHand.some(t => t.id === winningTile.id) ? winningTile : null;
+  const restOfHand = winningTileInHand ? concealedHand.filter(t => t.id !== winningTileInHand.id) : concealedHand;
+  const handCells: RevealCell[] = sortHandForDisplay(restOfHand).map(tile => ({ tile, isFaceDown: false }));
+  if (winningTileInHand) {
+    handCells.push({ tile: winningTileInHand, isFaceDown: false, glow: 'red' });
   }
-  const rest = allTiles.filter(t => t.id !== winningTile.id);
-  return [
-    ...sortHandForDisplay(rest).map(tile => ({ tile, isWinningTile: false })),
-    { tile: winningTile, isWinningTile: true },
-  ];
+
+  return [...meldCells, ...handCells];
 }
 
 export const WinModal: React.FC<WinModalProps> = ({
@@ -70,8 +87,10 @@ export const WinModal: React.FC<WinModalProps> = ({
   isSelfDraw,
   fans,
   totalFans,
-  playerAllTiles,
-  aiAllTiles,
+  playerConcealedTiles,
+  aiConcealedTiles,
+  playerMelds,
+  aiMelds,
   mode,
   onRestart,
 }) => {
@@ -84,8 +103,8 @@ export const WinModal: React.FC<WinModalProps> = ({
     return () => clearTimeout(timer);
   }, []);
 
-  const aiReveal = getRevealTiles(aiAllTiles, isPlayerWin ? null : winningTile);
-  const playerReveal = getRevealTiles(playerAllTiles, isPlayerWin ? winningTile : null);
+  const aiReveal = buildRevealCells(aiConcealedTiles, aiMelds, isPlayerWin ? null : winningTile);
+  const playerReveal = buildRevealCells(playerConcealedTiles, playerMelds, isPlayerWin ? winningTile : null);
 
   // Both rows always use the SAME number of grid columns (the mode's full hand size),
   // regardless of how many tiles either side actually holds — so tile size stays identical
@@ -101,10 +120,12 @@ export const WinModal: React.FC<WinModalProps> = ({
     <div className="fixed inset-0 bg-black/85 z-50 overflow-y-auto p-3 flex flex-col">
       <div className="relative w-full max-w-md bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-3 m-auto shadow-2xl text-stone-100">
 
-        {/* a. Both hands, one row each, sorted, winning tile pinned rightmost with red glow.
-            Grid columns fixed to the mode's full hand size (not the actual tile count) so
-            the row fills the exact available width edge-to-edge and both hands render at the
-            identical tile size, with any missing tile leaving an empty slot on the right. */}
+        {/* a. Both hands, one row each: exposed melds (same chow/pong/kong glow + kong tile-
+            compression as the live game) first, then the sorted concealed tiles with the
+            winning tile pinned rightmost with a red glow. Grid columns fixed to the mode's
+            full hand size (not the actual tile count) so the row fills the exact available
+            width edge-to-edge and both hands render at the identical tile size, with any
+            missing tile leaving an empty slot on the right. */}
         <div className="space-y-3 mb-4">
           <div>
             <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">🤖 電腦手牌</span>
@@ -112,8 +133,8 @@ export const WinModal: React.FC<WinModalProps> = ({
               className="-mx-3 grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800"
               style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
             >
-              {aiReveal.map(({ tile, isWinningTile }, idx) => (
-                <ChessTile key={`ai_${idx}`} tile={tile} size="winReveal" glow={isWinningTile ? 'red' : undefined} />
+              {aiReveal.map(({ tile, isFaceDown, glow }, idx) => (
+                <ChessTile key={`ai_${idx}`} tile={tile} size="winReveal" isFaceDown={isFaceDown} glow={glow} />
               ))}
             </div>
           </div>
@@ -123,8 +144,8 @@ export const WinModal: React.FC<WinModalProps> = ({
               className="-mx-3 grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800"
               style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
             >
-              {playerReveal.map(({ tile, isWinningTile }, idx) => (
-                <ChessTile key={`p_${idx}`} tile={tile} size="winReveal" glow={isWinningTile ? 'red' : undefined} />
+              {playerReveal.map(({ tile, isFaceDown, glow }, idx) => (
+                <ChessTile key={`p_${idx}`} tile={tile} size="winReveal" isFaceDown={isFaceDown} glow={glow} />
               ))}
             </div>
           </div>
@@ -186,7 +207,7 @@ export const WinModal: React.FC<WinModalProps> = ({
               '--fw-dy': `${p.dy}px`,
               '--fw-delay': `${p.delay}s`,
               backgroundColor: p.color,
-              boxShadow: `0 0 6px 2px ${p.color}`,
+              boxShadow: `0 0 12px 4px ${p.color}`,
             } as React.CSSProperties}
           />
         ))}

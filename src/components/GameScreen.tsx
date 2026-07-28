@@ -16,7 +16,8 @@ import {
   computeHandProgressScore,
   calculateFans,
   evaluateHand,
-  sortHandForDisplay
+  sortHandForDisplay,
+  getMeldDisplayTiles
 } from '../utils/gameEngine';
 import { RuleGuide } from './RuleGuide';
 import { WinModal } from './WinModal';
@@ -31,33 +32,9 @@ interface GameScreenProps {
   onExit: () => void;
 }
 
-// Within an exposed meld, the tile that came from elsewhere (a claimed discard, or the tile that
-// completed a kong) is always appended last by construction — see handlePlayerPong/executeEat/
-// handlePlayerKong/handlePlayerSelfKong and their AI equivalents below. Display wants that tile
-// centered, flanked by the tiles that were already in the concealed hand.
-//
-// Kongs are visually compressed to 3 tiles instead of their real 4 (the 4th is redundant since
-// all 4 are identical) — an open kong (明槓: direct-discard claim or a pong upgraded via a drawn
-// 4th tile) shows all 3 face up; a concealed kong (暗槓: discardSource 'self') shows only the
-// center tile, with the two flanking tiles face down.
-function getMeldDisplayTiles(meld: Meld): { tile: Tile; isTrigger: boolean; isFaceDown: boolean }[] {
-  const tiles = meld.tiles;
-  const trigger = tiles[tiles.length - 1];
-  const others = tiles.slice(0, tiles.length - 1);
-
-  if (meld.type === 'kong') {
-    const isConcealed = meld.discardSource === 'self';
-    const [a, b] = others;
-    return [
-      { tile: a, isTrigger: false, isFaceDown: isConcealed },
-      { tile: trigger, isTrigger: true, isFaceDown: false },
-      { tile: b, isTrigger: false, isFaceDown: isConcealed },
-    ];
-  }
-
-  const ordered = [others[0], trigger, others[1]];
-  return ordered.map(t => ({ tile: t, isTrigger: t.id === trigger.id, isFaceDown: false }));
-}
+// getMeldDisplayTiles now lives in gameEngine.ts (shared with WinModal.tsx for a consistent
+// meld display). See handlePlayerPong/executeEat/handlePlayerKong/handlePlayerSelfKong and
+// their AI equivalents below for how the "trigger" tile (last in meld.tiles) gets there.
 
 function useIsLandscape(): boolean {
   const [isLandscape, setIsLandscape] = useState<boolean>(() =>
@@ -544,8 +521,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         fans: [], totalFans: 0,
         handSnapshot: prev.player.hand,
         meldsSnapshot: prev.player.melds,
-        playerAllTiles: [...prev.player.hand, ...prev.player.melds.flatMap(m => m.tiles)],
-        aiAllTiles: [...prev.ai.hand, ...prev.ai.melds.flatMap(m => m.tiles)],
+        playerConcealedTiles: prev.player.hand,
+        aiConcealedTiles: prev.ai.hand,
+        playerMelds: prev.player.melds,
+        aiMelds: prev.ai.melds,
       }
     }));
   };
@@ -705,12 +684,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, isSelfDraw, isFirstMove, winnerState.isBanker);
     const totalFans = fansCalculated.reduce((sum, f) => sum + f.value, 0);
     const payout = calculatePayout(totalFans);
-    const winnerAllTiles = [...finalConcealedHand, ...winnerState.melds.flatMap(m => m.tiles)];
+    const winnerMelds = winnerState.melds;
 
     setGameState(prev => {
-      const loserAllTiles = isPlayer
-        ? [...prev.ai.hand, ...prev.ai.melds.flatMap(m => m.tiles)]
-        : [...prev.player.hand, ...prev.player.melds.flatMap(m => m.tiles)];
+      const loserConcealedHand = isPlayer ? prev.ai.hand : prev.player.hand;
+      const loserMelds = isPlayer ? prev.ai.melds : prev.player.melds;
       return {
         ...prev,
         wall: updatedWall,
@@ -721,8 +699,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         winInfo: {
           winner, winningTile, isSelfDraw, fans: fansCalculated, totalFans,
           handSnapshot: finalConcealedHand, meldsSnapshot: winnerState.melds,
-          playerAllTiles: isPlayer ? winnerAllTiles : loserAllTiles,
-          aiAllTiles: isPlayer ? loserAllTiles : winnerAllTiles,
+          playerConcealedTiles: isPlayer ? finalConcealedHand : loserConcealedHand,
+          aiConcealedTiles: isPlayer ? loserConcealedHand : finalConcealedHand,
+          playerMelds: isPlayer ? winnerMelds : loserMelds,
+          aiMelds: isPlayer ? loserMelds : winnerMelds,
         },
       };
     });
@@ -1289,8 +1269,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           isSelfDraw={gameState.winInfo.isSelfDraw}
           fans={gameState.winInfo.fans}
           totalFans={gameState.winInfo.totalFans}
-          playerAllTiles={gameState.winInfo.playerAllTiles}
-          aiAllTiles={gameState.winInfo.aiAllTiles}
+          playerConcealedTiles={gameState.winInfo.playerConcealedTiles}
+          aiConcealedTiles={gameState.winInfo.aiConcealedTiles}
+          playerMelds={gameState.winInfo.playerMelds}
+          aiMelds={gameState.winInfo.aiMelds}
           mode={gameState.mode}
           onRestart={handleReplay}
         />

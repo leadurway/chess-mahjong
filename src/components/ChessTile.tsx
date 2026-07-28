@@ -82,9 +82,12 @@ export const ChessTile: React.FC<ChessTileProps> = ({
 
   const inner = isFaceDown ? backContent : faceContent;
 
-  // The outer box defines the actual rendered size.
+  // The outer box defines the actual rendered size. Kong's center tile (red glow) gets a
+  // z-index bump so its ring + glow shadow — which visually overflow past this tile's own
+  // box — render above the neighboring flanking tiles instead of being clipped underneath
+  // them (adjacent flex/grid siblings otherwise paint on top per DOM order).
   const box = glow ? (
-    <div className={`${widthClass} aspect-square relative`}>
+    <div className={`${widthClass} aspect-square relative ${glow === 'red' ? 'z-10' : ''}`}>
       <div
         className={`absolute inset-0 rounded-full ${
           glow === 'red'

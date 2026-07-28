@@ -15,6 +15,33 @@ export function sortHandForDisplay(hand: Tile[]): Tile[] {
   return [...hand].sort((a, b) => rank(a) - rank(b));
 }
 
+// Within an exposed meld, the tile that came from elsewhere (a claimed discard, or the tile that
+// completed a kong) is always appended last by construction. Display wants that tile centered,
+// flanked by the tiles that were already in the concealed hand.
+//
+// Kongs are visually compressed to 3 tiles instead of their real 4 (the 4th is redundant since
+// all 4 are identical) — an open kong (明槓: direct-discard claim or a pong upgraded via a drawn
+// 4th tile) shows all 3 face up; a concealed kong (暗槓: discardSource 'self') shows only the
+// center tile, with the two flanking tiles face down.
+export function getMeldDisplayTiles(meld: Meld): { tile: Tile; isTrigger: boolean; isFaceDown: boolean }[] {
+  const tiles = meld.tiles;
+  const trigger = tiles[tiles.length - 1];
+  const others = tiles.slice(0, tiles.length - 1);
+
+  if (meld.type === 'kong') {
+    const isConcealed = meld.discardSource === 'self';
+    const [a, b] = others;
+    return [
+      { tile: a, isTrigger: false, isFaceDown: isConcealed },
+      { tile: trigger, isTrigger: true, isFaceDown: false },
+      { tile: b, isTrigger: false, isFaceDown: isConcealed },
+    ];
+  }
+
+  const ordered = [others[0], trigger, others[1]];
+  return ordered.map(t => ({ tile: t, isTrigger: t.id === trigger.id, isFaceDown: false }));
+}
+
 // Generate a unique tile pool based on mode
 export function generateTilePool(mode: GameMode): Tile[] {
   const pool: Omit<Tile, 'id'>[] = [];

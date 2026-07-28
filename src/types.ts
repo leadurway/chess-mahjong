@@ -52,8 +52,13 @@ export interface GameState {
     totalFans: number;
     handSnapshot: Tile[];
     meldsSnapshot: Meld[];
-    playerAllTiles: Tile[]; // player's full hand (concealed + exposed melds) at round end, for reveal display
-    aiAllTiles: Tile[]; // AI's full hand (concealed + exposed melds) at round end, for reveal display
+    // Concealed-hand tiles and exposed melds are kept separate (rather than flattened together)
+    // so the win-modal reveal can render melds with the same chow/pong/kong glow + kong-tile-
+    // compression treatment used in the live game, instead of a plain flat tile list.
+    playerConcealedTiles: Tile[];
+    aiConcealedTiles: Tile[];
+    playerMelds: Meld[];
+    aiMelds: Meld[];
   } | null;
   logs: string[];
 }
