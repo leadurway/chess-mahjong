@@ -147,7 +147,6 @@ export const WinModal: React.FC<WinModalProps> = ({
   onRestart,
 }) => {
   const isPlayerWin = winner === 'player';
-  const [showContinue, setShowContinue] = useState(false);
 
   // Measured post-mount so fireworks can steer clear of the AI/player hand rows and the fan
   // (台數/"score") box — real DOM rects rather than guessed layout percentages, so this stays
@@ -177,11 +176,6 @@ export const WinModal: React.FC<WinModalProps> = ({
   }, []);
 
   const particles = useFireworkParticles(avoidRects);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowContinue(true), 3000);
-    return () => clearTimeout(timer);
-  }, []);
 
   const aiReveal = buildRevealCells(aiConcealedTiles, aiMelds, isPlayerWin ? null : winningTile);
   const playerReveal = buildRevealCells(playerConcealedTiles, playerMelds, isPlayerWin ? winningTile : null);
@@ -260,15 +254,14 @@ export const WinModal: React.FC<WinModalProps> = ({
           </div>
         </div>
 
-        {/* d. Continue button — appears after 3s, height reduced to 60% to match the message box */}
-        {showContinue && (
-          <button
-            onClick={onRestart}
-            className="w-full h-[86px] rounded-2xl bg-yellow-400 text-black font-serif font-black text-3xl shadow-[0_0_24px_8px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
-          >
-            繼續下局
-          </button>
-        )}
+        {/* d. Continue button — shown immediately alongside the win info, height reduced to
+            60% to match the message box */}
+        <button
+          onClick={onRestart}
+          className="w-full h-[86px] rounded-2xl bg-yellow-400 text-black font-serif font-black text-3xl shadow-[0_0_24px_8px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+        >
+          繼續下局
+        </button>
       </div>
 
       {/* Fireworks — rendered last (on top of the modal card, not just the backdrop) and
