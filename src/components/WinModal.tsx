@@ -264,30 +264,32 @@ export const WinModal: React.FC<WinModalProps> = ({
         </button>
       </div>
 
-      {/* Fireworks — rendered last (on top of the modal card, not just the backdrop) and
-          fixed to the viewport regardless of scroll, so the celebratory burst is always
-          visible: origins are randomized across the whole screen, and on tall/narrow phones
-          the modal card itself can cover almost the entire viewport, leaving no backdrop
-          area free for a "behind the modal" effect to actually be seen. Kept pointer-events-none
-          so it never blocks the tiles or the continue button underneath it. */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {particles.map(p => (
-          <div
-            key={p.id}
-            className="firework-particle"
-            style={{
-              '--fw-origin-x': p.originX,
-              '--fw-origin-y': p.originY,
-              '--fw-dx': `${p.dx}px`,
-              '--fw-dy': `${p.dy}px`,
-              '--fw-delay': `${p.delay}s`,
-              '--fw-size': `${p.size}px`,
-              backgroundColor: p.color,
-              boxShadow: `0 0 ${p.size}px ${p.size / 3}px ${p.color}`,
-            } as React.CSSProperties}
-          />
-        ))}
-      </div>
+      {/* Fireworks — only for a player win (celebrating your own win, not the AI's), rendered
+          last (on top of the modal card, not just the backdrop) and fixed to the viewport
+          regardless of scroll: origins are randomized across the whole screen, and on
+          tall/narrow phones the modal card itself can cover almost the entire viewport,
+          leaving no backdrop area free for a "behind the modal" effect to actually be seen.
+          Kept pointer-events-none so it never blocks the tiles or the continue button. */}
+      {isPlayerWin && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          {particles.map(p => (
+            <div
+              key={p.id}
+              className="firework-particle"
+              style={{
+                '--fw-origin-x': p.originX,
+                '--fw-origin-y': p.originY,
+                '--fw-dx': `${p.dx}px`,
+                '--fw-dy': `${p.dy}px`,
+                '--fw-delay': `${p.delay}s`,
+                '--fw-size': `${p.size}px`,
+                backgroundColor: p.color,
+                boxShadow: `0 0 ${p.size}px ${p.size / 3}px ${p.color}`,
+              } as React.CSSProperties}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
