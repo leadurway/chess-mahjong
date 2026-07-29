@@ -13,8 +13,8 @@ html, body {
   position: absolute;
   top: var(--fw-origin-y);
   left: var(--fw-origin-x);
-  width: 12px;
-  height: 12px;
+  width: var(--fw-size, 12px);
+  height: var(--fw-size, 12px);
   border-radius: 9999px;
   animation: firework-burst 1200ms ease-out infinite;
   animation-delay: var(--fw-delay);

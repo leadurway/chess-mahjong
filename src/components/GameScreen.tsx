@@ -36,6 +36,18 @@ interface GameScreenProps {
 // meld display). See handlePlayerPong/executeEat/handlePlayerKong/handlePlayerSelfKong and
 // their AI equivalents below for how the "trigger" tile (last in meld.tiles) gets there.
 
+// A winning hand structurally needs exactly 1 meld (32-tile mode) or 2 melds (56/64-tile
+// mode) plus the eye. Nothing previously stopped a player/AI from pong/eat/kong-ing PAST
+// that cap — once they did, expectedIdleSize/expectedStartSize/targetWinSize (all derived
+// from `meldsCount * 3`) go negative and can never match a real hand length again, which
+// permanently stalls handleAILoops (if it happens to the AI) or permanently hides the human
+// player's win-declare button (if it happens to them). Pong/chow/a brand-new kong all add a
+// meld and must respect this cap; upgrading an existing pong into a kong (補槓) does not
+// change the meld count, so it's exempt.
+function maxMeldsForMode(mode: GameMode): number {
+  return mode === 32 ? 1 : 2;
+}
+
 function useIsLandscape(): boolean {
   const [isLandscape, setIsLandscape] = useState<boolean>(() =>
     typeof window !== 'undefined' ? window.matchMedia('(orientation: landscape)').matches : false
@@ -226,10 +238,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const playerMelds = currentGameState.player.melds;
     const completeHand = [...playerHand, discardedTile];
     const canWin = isWinningHand(completeHand, playerMelds);
-    const canPong = getPongCombination(playerHand, discardedTile) !== null;
-    const eatCombos = getEatCombinations(playerHand, discardedTile);
+    // Pong/eat/kong-from-discard would all form a brand-new meld — only offer them while
+    // still under the mode's meld cap, and only offer kong if a replacement tile actually
+    // exists to draw (see maxMeldsForMode above for why both guards matter).
+    const canFormNewMeld = playerMelds.length < maxMeldsForMode(currentGameState.mode);
+    const canPong = canFormNewMeld && getPongCombination(playerHand, discardedTile) !== null;
+    const eatCombos = canFormNewMeld ? getEatCombinations(playerHand, discardedTile) : [];
     const canEat = eatCombos.length > 0;
-    const canKong = getKongCombinations(playerHand, playerMelds, discardedTile).length > 0;
+    const canKong = canFormNewMeld && currentGameState.wall.length > 0 &&
+      getKongCombinations(playerHand, playerMelds, discardedTile).length > 0;
     return { canWin, canPong, canEat, eatCombos, canKong };
   };
 
@@ -293,9 +310,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         return;
       }
 
-      // AI self-kong (暗槓/補槓) opportunity right after drawing.
-      const aiSelfKongOptions = getSelfKongOptions(aiHand, aiMelds);
-      if (aiSelfKongOptions.length > 0 && (gameState.difficulty === 'hard' || Math.random() > 0.5)) {
+      // AI self-kong (暗槓/補槓) opportunity right after drawing. A brand-new concealed kong
+      // (not an upgrade) adds a meld, so it must respect the mode's meld cap; either way, a
+      // kong always needs a replacement tile, so it's only offered while the wall still has
+      // one to give — otherwise chooseAIDiscard below would end up discarding from a hand
+      // that's permanently 1 tile short, desyncing expectedIdleSize/expectedStartSize for the
+      // rest of the round and stalling handleAILoops entirely (see maxMeldsForMode).
+      const aiSelfKongOptions = getSelfKongOptions(aiHand, aiMelds)
+        .filter(opt => opt.isUpgrade || aiMelds.length < maxMeldsForMode(gameState.mode));
+      if (aiSelfKongOptions.length > 0 && updatedWall.length > 0 && (gameState.difficulty === 'hard' || Math.random() > 0.5)) {
         const option = aiSelfKongOptions[0];
         const replacementTile = updatedWall.pop();
         const handAfterKong = aiHand.filter(t => !option.tiles.some(c => c.id === t.id));
@@ -439,9 +462,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       return;
     }
 
-    const aiPongCombo = getPongCombination(nextGameState.ai.hand, tileToDiscard);
-    const aiEatCombos = getEatCombinations(nextGameState.ai.hand, tileToDiscard);
     const aiMeldsCountBefore = nextGameState.ai.melds.length;
+    // Pong/eat here would each form a brand-new meld for the AI — only consider them while
+    // still under the mode's meld cap (see maxMeldsForMode for why exceeding it is dangerous).
+    const aiCanFormNewMeld = aiMeldsCountBefore < maxMeldsForMode(gameState.mode);
+    const aiPongCombo = aiCanFormNewMeld ? getPongCombination(nextGameState.ai.hand, tileToDiscard) : null;
+    const aiEatCombos = aiCanFormNewMeld ? getEatCombinations(nextGameState.ai.hand, tileToDiscard) : [];
     let aiMelded = false;
 
     const wantsPong = aiPongCombo && (
@@ -537,6 +563,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const handlePlayerPong = () => {
     if (gameState.phase !== 'showMeldSelect' || !gameState.lastDiscard) return;
+    if (gameState.player.melds.length >= maxMeldsForMode(gameState.mode)) return;
     const d = gameState.lastDiscard;
     const combo = getPongCombination(gameState.player.hand, d);
     if (!combo) return;
@@ -558,6 +585,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const handlePlayerEat = () => {
     if (gameState.phase !== 'showMeldSelect' || !gameState.lastDiscard) return;
+    if (gameState.player.melds.length >= maxMeldsForMode(gameState.mode)) return;
     const d = gameState.lastDiscard;
     const combos = getEatCombinations(gameState.player.hand, d);
     if (combos.length === 0) return;
@@ -568,6 +596,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const executeEat = (selectedCombo: Tile[]) => {
     const d = gameState.lastDiscard;
     if (!d) return;
+    if (gameState.player.melds.length >= maxMeldsForMode(gameState.mode)) return;
     playSfx('meld');
     setShowEatSelections(false);
     setPendingEatCombos(null);
@@ -589,6 +618,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const handlePlayerKong = () => {
     if (!gameState.lastDiscard) return;
+    if (gameState.player.melds.length >= maxMeldsForMode(gameState.mode)) return;
+    if (gameState.wall.length === 0) return;
     const d = gameState.lastDiscard;
     const combos = getKongCombinations(gameState.player.hand, gameState.player.melds, d);
     if (combos.length === 0) return;
@@ -617,7 +648,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   const handlePlayerSelfKong = () => {
     if (gameState.phase !== 'waitingDiscard' || gameState.turn !== 'player') return;
-    const options = getSelfKongOptions(gameState.player.hand, gameState.player.melds);
+    if (gameState.wall.length === 0) return;
+    const options = getSelfKongOptions(gameState.player.hand, gameState.player.melds)
+      .filter(opt => opt.isUpgrade || gameState.player.melds.length < maxMeldsForMode(gameState.mode));
     if (options.length === 0) return;
     const option = options[0];
     playSfx('meld');
@@ -680,7 +713,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const isPlayer = winner === 'player';
     playSfx(isPlayer ? 'win' : 'lose');
     const winnerState = isPlayer ? gameState.player : gameState.ai;
-    const isFirstMove = gameState.player.discards.length === 0 && gameState.ai.discards.length === 0;
+    // 天胡/地胡 both require the WINNER to still be on their very first turn (never having
+    // discarded). Requiring BOTH sides to have zero discards is wrong for 地胡 specifically:
+    // by the time the idle side gets their first draw, the dealer has necessarily already
+    // made their opening discard, so that stricter check could never be true and 地胡 could
+    // never actually fire. Each side's own discard count is what matters.
+    const isFirstMove = winnerState.discards.length === 0;
     const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, isSelfDraw, isFirstMove, winnerState.isBanker);
     const totalFans = fansCalculated.reduce((sum, f) => sum + f.value, 0);
     const payout = calculatePayout(totalFans);
@@ -753,8 +791,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const isSelfDrawWinAvailable = gameState.player.hand.length === expectedWinSize &&
     isWinningHand(gameState.player.hand, gameState.player.melds);
 
-  const selfKongOptions = gameState.turn === 'player' && gameState.phase === 'waitingDiscard'
+  const selfKongOptions = gameState.turn === 'player' && gameState.phase === 'waitingDiscard' && gameState.wall.length > 0
     ? getSelfKongOptions(gameState.player.hand, gameState.player.melds)
+        .filter(opt => opt.isUpgrade || gameState.player.melds.length < maxMeldsForMode(gameState.mode))
     : [];
 
   const canDraw = gameState.turn === 'player' && gameState.phase === 'drawing';
@@ -1087,23 +1126,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── FOOTER: FIXED ACTIONS + HINT (bottom-most; the popup overlays on top of this when shown) ── */}
       <div className="shrink-0 flex flex-col">
 
-        {/* Two fixed action buttons: 摸牌 / 打出這張牌 */}
+        {/* Two fixed action buttons: 打出這張牌 / 摸牌 */}
         <div className="px-3 pt-2 flex gap-2">
-          <motion.button
-            disabled={!canDraw}
-            onClick={handlePlayerDraw}
-            animate={canDraw ? { y: [0, -6, 0] } : { y: 0 }}
-            transition={canDraw ? { repeat: Infinity, duration: 1.1 } : { duration: 0.2 }}
-            className={`flex-1 h-16 rounded-2xl font-bold font-serif text-xl transition-colors flex items-center justify-center gap-2 ${
-              canDraw
-                ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
-                : 'bg-stone-800/60 text-stone-500'
-            }`}
-          >
-            <span>🀄 摸牌</span>
-            <span className="text-yellow-300">{gameState.wall.length}張</span>
-          </motion.button>
-
           <motion.button
             disabled={!canDiscard}
             onClick={() => {
@@ -1120,6 +1144,21 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             }`}
           >
             👉 打出這張牌
+          </motion.button>
+
+          <motion.button
+            disabled={!canDraw}
+            onClick={handlePlayerDraw}
+            animate={canDraw ? { y: [0, -6, 0] } : { y: 0 }}
+            transition={canDraw ? { repeat: Infinity, duration: 1.1 } : { duration: 0.2 }}
+            className={`flex-1 h-16 rounded-2xl font-bold font-serif text-xl transition-colors flex items-center justify-center gap-2 ${
+              canDraw
+                ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
+                : 'bg-stone-800/60 text-stone-500'
+            }`}
+          >
+            <span>🀄 摸牌</span>
+            <span className="text-yellow-300">{gameState.wall.length}張</span>
           </motion.button>
         </div>
 
