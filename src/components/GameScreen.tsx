@@ -65,6 +65,23 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const logEndRef = useRef<HTMLDivElement>(null);
   const confirmExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // iPad/desktop size discard tiles from the ACTUAL available height of the discard area
+  // (rather than a fixed px), so a specific row count (3 in portrait, 2 in landscape/desktop)
+  // just fits — instead of a fixed tile size showing however many rows happen to fit, with
+  // the rest requiring a scroll. Player and AI discard areas are both flex-1 siblings sharing
+  // the same remaining vertical space, so measuring just one (the AI one) covers both.
+  const discardAreaRef = useRef<HTMLDivElement>(null);
+  const [discardAreaHeight, setDiscardAreaHeight] = useState(0);
+  useEffect(() => {
+    const el = discardAreaRef.current;
+    if (!el) return;
+    const update = () => setDiscardAreaHeight(el.clientHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const handleExitClick = () => {
     if (confirmExit) {
       if (confirmExitTimerRef.current) clearTimeout(confirmExitTimerRef.current);
@@ -851,8 +868,22 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // discards just match the (already doubled) hand size instead of ever shrinking.
   const discardTileSize = isLargeScreen ? handSize : (isLandscape ? 'handHalf' : 'hand');
   const discardMinHeightClass = isLargeScreen ? 'min-h-28' : (isLandscape ? 'min-h-9' : 'min-h-14');
-  // Portrait discards line up in a fixed 8-per-row grid, same tile size as the hand.
-  const discardGridWidthPx = 8 * HAND_TILE_PX + 7 * HAND_GAP_PX;
+
+  // On iPad/desktop, override that fixed size with one computed from the discard area's
+  // actual measured height, so a target row count (3 portrait, 2 landscape/desktop) fills it
+  // exactly instead of a fixed size showing an arbitrary number of rows plus a scrollbar.
+  const discardRowsTarget = isLargeScreen ? (isLandscape ? 2 : 3) : null;
+  const DISCARD_AREA_PADDING_PX = 12; // py-1.5 (6px top + 6px bottom)
+  const discardComputedTilePx = discardRowsTarget && discardAreaHeight > 0
+    ? Math.max(24, Math.floor(
+        (discardAreaHeight - DISCARD_AREA_PADDING_PX - (discardRowsTarget - 1) * HAND_GAP_PX) / discardRowsTarget
+      ))
+    : null;
+
+  // Portrait discards line up in a fixed 8-per-row grid; tile size matches whatever discards
+  // are actually rendered at (the row-count-driven size on large screens, hand size on phones).
+  const discardGridTilePx = discardComputedTilePx ?? HAND_TILE_PX;
+  const discardGridWidthPx = 8 * discardGridTilePx + 7 * HAND_GAP_PX;
 
   const aiAvatarName = (
     <div className="flex items-center gap-2 shrink-0">
@@ -1074,16 +1105,20 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       )}
 
       {/* ── AI DISCARDS ── */}
-      <div className={`flex-1 ${discardMinHeightClass} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}>
+      <div ref={discardAreaRef} className={`flex-1 ${discardMinHeightClass} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}>
         <div
           className={isLandscape ? `flex flex-wrap ${handGapClass} content-start` : `grid ${handGapClass} content-start mx-auto`}
-          style={!isLandscape ? { gridTemplateColumns: `repeat(8, ${HAND_TILE_PX}px)`, width: `${discardGridWidthPx}px` } : undefined}
+          style={!isLandscape ? { gridTemplateColumns: `repeat(8, ${discardGridTilePx}px)`, width: `${discardGridWidthPx}px` } : undefined}
         >
           {gameState.ai.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'ai' && gameState.lastDiscard?.id === tile.id;
             return (
               <div key={`ai_d_${index}`} className="relative">
-                <ChessTile tile={tile} size={discardTileSize} />
+                {discardComputedTilePx ? (
+                  <ChessTile tile={tile} sizePx={discardComputedTilePx} />
+                ) : (
+                  <ChessTile tile={tile} size={discardTileSize} />
+                )}
                 {isLatest && <div className="absolute inset-0 rounded-full ring-2 ring-amber-400 animate-pulse pointer-events-none" />}
               </div>
             );
@@ -1095,13 +1130,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       <div className={`flex-1 ${discardMinHeightClass} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}>
         <div
           className={isLandscape ? `flex flex-wrap ${handGapClass} content-start` : `grid ${handGapClass} content-start mx-auto`}
-          style={!isLandscape ? { gridTemplateColumns: `repeat(8, ${HAND_TILE_PX}px)`, width: `${discardGridWidthPx}px` } : undefined}
+          style={!isLandscape ? { gridTemplateColumns: `repeat(8, ${discardGridTilePx}px)`, width: `${discardGridWidthPx}px` } : undefined}
         >
           {gameState.player.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'player' && gameState.lastDiscard?.id === tile.id;
             return (
               <div key={`player_d_${index}`} className="relative">
-                <ChessTile tile={tile} size={discardTileSize} />
+                {discardComputedTilePx ? (
+                  <ChessTile tile={tile} sizePx={discardComputedTilePx} />
+                ) : (
+                  <ChessTile tile={tile} size={discardTileSize} />
+                )}
                 {isLatest && <div className="absolute inset-0 rounded-full ring-2 ring-red-400 animate-pulse pointer-events-none" />}
               </div>
             );

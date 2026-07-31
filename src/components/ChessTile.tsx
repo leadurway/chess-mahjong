@@ -5,6 +5,11 @@ import { Tile } from '../types';
 interface ChessTileProps {
   tile: Tile;
   size?: 'xs' | 'sm' | 'handHalf' | 'hand' | 'handLg' | 'md' | 'lg' | 'xl' | 'winReveal';
+  /** Overrides `size`'s fixed box width with an exact pixel value — for tiles whose size is
+   * computed at render time (e.g. discards sized to make a target row count fit the available
+   * height) rather than picked from the fixed named sizes above. Font still scales via the
+   * same container-query approach as `winReveal`. */
+  sizePx?: number;
   isFaceDown?: boolean;
   /** Hand tile picked for discard: keeps its normal face, adds a yellow glow ring + gentle bounce. */
   isSelected?: boolean;
@@ -37,6 +42,7 @@ const SIZE_CLASSES: Record<NonNullable<ChessTileProps['size']>, { box: string; f
 export const ChessTile: React.FC<ChessTileProps> = ({
   tile,
   size = 'md',
+  sizePx,
   isFaceDown = false,
   isSelected = false,
   isClickable = false,
@@ -44,8 +50,9 @@ export const ChessTile: React.FC<ChessTileProps> = ({
   onClick,
   id,
 }) => {
-  const widthClass = SIZE_CLASSES[size].box;
-  const fontClass = SIZE_CLASSES[size].font;
+  const widthClass = sizePx ? '' : SIZE_CLASSES[size].box;
+  const fontClass = sizePx ? 'text-[45cqw]' : SIZE_CLASSES[size].font;
+  const boxStyle = sizePx ? { width: `${sizePx}px`, height: `${sizePx}px` } : undefined;
   const isRed = tile.color === 'red';
 
   const textStyle = isRed ? 'text-[#b91c1c]' : 'text-[#111827]';
@@ -90,7 +97,7 @@ export const ChessTile: React.FC<ChessTileProps> = ({
   // box — render above the neighboring flanking tiles instead of being clipped underneath
   // them (adjacent flex/grid siblings otherwise paint on top per DOM order).
   const box = glow ? (
-    <div className={`${widthClass} aspect-square relative ${glow === 'red' ? 'z-10' : ''}`}>
+    <div className={`${widthClass} aspect-square relative ${glow === 'red' ? 'z-10' : ''}`} style={boxStyle}>
       <div
         className={`absolute inset-0 rounded-full ${
           glow === 'red'
@@ -101,7 +108,7 @@ export const ChessTile: React.FC<ChessTileProps> = ({
       <div className="absolute inset-[5%]">{inner}</div>
     </div>
   ) : (
-    <div className={`${widthClass} aspect-square`}>{inner}</div>
+    <div className={`${widthClass} aspect-square`} style={boxStyle}>{inner}</div>
   );
 
   if (!isClickable) return <div id={id}>{box}</div>;
