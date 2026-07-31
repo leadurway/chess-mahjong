@@ -4,7 +4,7 @@ import { Tile } from '../types';
 
 interface ChessTileProps {
   tile: Tile;
-  size?: 'xs' | 'sm' | 'handHalf' | 'hand' | 'md' | 'lg' | 'xl' | 'winReveal';
+  size?: 'xs' | 'sm' | 'handHalf' | 'hand' | 'handLg' | 'md' | 'lg' | 'xl' | 'winReveal';
   isFaceDown?: boolean;
   /** Hand tile picked for discard: keeps its normal face, adds a yellow glow ring + gentle bounce. */
   isSelected?: boolean;
@@ -20,8 +20,11 @@ const SIZE_CLASSES: Record<NonNullable<ChessTileProps['size']>, { box: string; f
   sm: { box: 'w-10', font: 'text-lg' },
   // Hand/meld display size: the old "sm" hand size (40px/18px) enlarged by +10%/+20%.
   hand: { box: 'w-11', font: 'text-[22px]' },
-  // Half of "hand" — landscape discards (same look as the hand, at half scale).
+  // Half of "hand" — landscape discards on phones (same look as the hand, at half scale).
   handHalf: { box: 'w-[22px]', font: 'text-[11px]' },
+  // Double "hand" — iPad/desktop hand, melds, and discards all use this instead, since the
+  // extra screen space means nothing needs to shrink to fit.
+  handLg: { box: 'w-[88px]', font: 'text-[44px]' },
   md: { box: 'w-12', font: 'text-xl' },
   lg: { box: 'w-16', font: 'text-3xl' },
   xl: { box: 'w-20', font: 'text-4xl' },

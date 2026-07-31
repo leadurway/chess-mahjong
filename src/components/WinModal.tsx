@@ -194,7 +194,7 @@ export const WinModal: React.FC<WinModalProps> = ({
     // proven-reliable pattern for iOS Safari (an earlier version of this modal used the
     // outer-scrolls approach and couldn't be scrolled at all in iPhone landscape).
     <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3">
-      <div className="relative w-full max-w-md max-h-[85dvh] overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-3 shadow-2xl text-stone-100">
+      <div className="relative w-full max-w-md md:max-w-2xl max-h-[85dvh] overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl p-3 md:p-6 shadow-2xl text-stone-100">
 
         {/* a. Both hands, one row each: exposed melds (same chow/pong/kong glow + kong tile-
             compression as the live game) first, then the sorted concealed tiles with the
@@ -204,9 +204,9 @@ export const WinModal: React.FC<WinModalProps> = ({
             missing tile leaving an empty slot on the right. */}
         <div className="space-y-3 mb-4">
           <div ref={aiHandRowRef}>
-            <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">🤖 電腦手牌</span>
+            <span className="text-[10px] md:text-sm text-stone-500 uppercase font-semibold block mb-1">🤖 電腦手牌</span>
             <div
-              className="-mx-3 grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800"
+              className="-mx-3 md:-mx-6 grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800"
               style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
             >
               {aiReveal.map(({ tile, isFaceDown, glow }, idx) => (
@@ -215,9 +215,9 @@ export const WinModal: React.FC<WinModalProps> = ({
             </div>
           </div>
           <div ref={playerHandRowRef}>
-            <span className="text-[10px] text-stone-500 uppercase font-semibold block mb-1">👤 玩家手牌</span>
+            <span className="text-[10px] md:text-sm text-stone-500 uppercase font-semibold block mb-1">👤 玩家手牌</span>
             <div
-              className="-mx-3 grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800"
+              className="-mx-3 md:-mx-6 grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800"
               style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
             >
               {playerReveal.map(({ tile, isFaceDown, glow }, idx) => (
@@ -228,20 +228,20 @@ export const WinModal: React.FC<WinModalProps> = ({
         </div>
 
         {/* b. Win message box — same color scheme as the active draw button, height reduced to 60% */}
-        <div className="w-full h-[86px] mb-4 rounded-2xl bg-red-600 text-white shadow-[0_0_24px_8px_rgba(220,38,38,0.55)] ring-2 ring-red-300 flex flex-col items-center justify-center">
-          <span className="text-3xl font-serif font-black">
+        <div className="w-full h-[86px] md:h-[120px] mb-4 rounded-2xl bg-red-600 text-white shadow-[0_0_24px_8px_rgba(220,38,38,0.55)] ring-2 ring-red-300 flex flex-col items-center justify-center">
+          <span className="text-3xl md:text-5xl font-serif font-black">
             {isPlayerWin ? '玩家' : '電腦'} {isSelfDraw ? '自摸' : '胡牌'}！
           </span>
-          <span className="text-sm mt-0.5 opacity-90">{isPlayerWin ? '🌟 恭喜獲勝！' : '💀 對手胡牌了'}</span>
+          <span className="text-sm md:text-xl mt-0.5 opacity-90">{isPlayerWin ? '🌟 恭喜獲勝！' : '💀 對手胡牌了'}</span>
         </div>
 
         {/* c. Fan / score calculation */}
-        <div ref={fanBoxRef} className="bg-stone-850/60 rounded-2xl p-4 border border-stone-800 mb-4">
-          <h3 className="text-sm font-semibold text-amber-500 mb-2 font-serif flex justify-between items-center">
+        <div ref={fanBoxRef} className="bg-stone-850/60 rounded-2xl p-4 md:p-6 border border-stone-800 mb-4">
+          <h3 className="text-sm md:text-xl font-semibold text-amber-500 mb-2 font-serif flex justify-between items-center">
             <span>📊 台數計算</span>
-            <span className="text-xl text-amber-400 font-extrabold font-mono">{totalFans} 台</span>
+            <span className="text-xl md:text-3xl text-amber-400 font-extrabold font-mono">{totalFans} 台</span>
           </h3>
-          <div className="divide-y divide-stone-800 text-xs max-h-32 overflow-y-auto">
+          <div className="divide-y divide-stone-800 text-xs md:text-lg max-h-32 md:max-h-48 overflow-y-auto">
             {fans.map((fan, index) => (
               <div key={`fan_${index}`} className="py-2 flex justify-between items-center">
                 <span className="text-stone-300 font-medium">{fan.name}</span>
@@ -258,7 +258,7 @@ export const WinModal: React.FC<WinModalProps> = ({
             60% to match the message box */}
         <button
           onClick={onRestart}
-          className="w-full h-[86px] rounded-2xl bg-yellow-400 text-black font-serif font-black text-3xl shadow-[0_0_24px_8px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+          className="w-full h-[86px] md:h-[120px] rounded-2xl bg-yellow-400 text-black font-serif font-black text-3xl md:text-5xl shadow-[0_0_24px_8px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
         >
           繼續下局
         </button>

@@ -23,6 +23,7 @@ import { RuleGuide } from './RuleGuide';
 import { WinModal } from './WinModal';
 import liangLogo from '../assets/liang-logo.png';
 import { loadPlayerProfile, savePlayerProfile, calculatePayout, STARTING_SCORE } from '../utils/playerProfile';
+import { useIsLandscape, useIsLargeScreen } from '../hooks/useResponsive';
 
 interface GameScreenProps {
   mode: GameMode;
@@ -48,19 +49,6 @@ function maxMeldsForMode(mode: GameMode): number {
   return mode === 32 ? 1 : 2;
 }
 
-function useIsLandscape(): boolean {
-  const [isLandscape, setIsLandscape] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(orientation: landscape)').matches : false
-  );
-  useEffect(() => {
-    const mq = window.matchMedia('(orientation: landscape)');
-    const handler = () => setIsLandscape(mq.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-  return isLandscape;
-}
-
 export const GameScreen: React.FC<GameScreenProps> = ({
   mode,
   difficulty,
@@ -73,6 +61,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [showLog, setShowLog] = useState<boolean>(false);
   const [confirmExit, setConfirmExit] = useState<boolean>(false);
   const isLandscape = useIsLandscape();
+  const isLargeScreen = useIsLargeScreen();
   const logEndRef = useRef<HTMLDivElement>(null);
   const confirmExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -813,13 +802,34 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     ? [...sortHandForDisplay(restOfPlayerHand), pendingDrawnTile]
     : sortHandForDisplay(restOfPlayerHand);
 
+  // iPad/desktop have enough room that nothing needs to shrink: hand, melds, and discards all
+  // use the same doubled tile size, in both orientations. handGapClass must track HAND_GAP_PX
+  // below (gap-1 = 4px, gap-2 = 8px) since handRowWidthPx's slot-frame math assumes whichever
+  // gap is actually rendered.
+  const handSize = isLargeScreen ? 'handLg' : 'hand';
+  const handGapClass = isLargeScreen ? 'gap-2' : 'gap-1';
+
+  // General UI scaling for iPad/desktop — driven by the same isLargeScreen signal as the hand/
+  // meld/discard sizing above (not raw Tailwind md:/lg: breakpoints), because those are width-
+  // only: a phone in landscape can be wider than the md breakpoint despite still being a phone,
+  // and would wrongly get the "large screen" treatment if this used width alone.
+  const bigBtnClass = isLargeScreen ? 'h-24 text-3xl' : 'h-16 text-xl';
+  const headerIconSize = isLargeScreen ? 30 : 15;
+  const avatarSizeClass = isLargeScreen ? 'w-14 h-14' : 'w-8 h-8';
+  const avatarTextClass = isLargeScreen ? 'text-xl' : 'text-xs';
+  const nameTextClass = isLargeScreen ? 'text-2xl' : 'text-sm';
+  const scoreTextClass = isLargeScreen ? 'text-3xl' : 'text-base';
+  const bankerTextClass = isLargeScreen ? 'text-xl' : 'text-xs';
+  const hintTextClass = isLargeScreen ? 'text-2xl' : 'text-base';
+  const logoSizeClass = isLargeScreen ? 'w-16 h-16' : 'w-9 h-9';
+
   const renderMeldGroup = (meld: Meld, keyPrefix: string, mIdx: number) => (
-    <div key={`${keyPrefix}_m_${mIdx}`} className="flex gap-1 shrink-0">
+    <div key={`${keyPrefix}_m_${mIdx}`} className={`flex ${handGapClass} shrink-0`}>
       {getMeldDisplayTiles(meld).map(({ tile, isTrigger, isFaceDown }, tIdx) => (
         <ChessTile
           key={`${keyPrefix}_mt_${mIdx}_${tIdx}`}
           tile={tile}
-          size="hand"
+          size={handSize}
           isFaceDown={isFaceDown}
           glow={meld.type === 'kong' && isTrigger ? 'red' : 'blue'}
         />
@@ -831,24 +841,25 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // (5 for 32-tile, 8 for 56/64-tile — the maximum concealed+exposed tile count in play at
   // once), so the frame itself never resizes; a newly drawn tile just fills the next empty
   // slot on the right instead of the whole row re-centering.
-  const HAND_TILE_PX = 44;
-  const HAND_GAP_PX = 4;
+  const HAND_TILE_PX = isLargeScreen ? 88 : 44;
+  const HAND_GAP_PX = isLargeScreen ? 8 : 4;
   const handSlotCount = gameState.mode === 32 ? 5 : 8;
   const handRowWidthPx = handSlotCount * HAND_TILE_PX + (handSlotCount - 1) * HAND_GAP_PX;
 
-  // Discards mirror the hand's look: full "hand" size in portrait, half that in landscape —
-  // both keep at least one row's worth of height reserved even under heavy vertical squeeze.
-  const discardTileSize = isLandscape ? 'handHalf' : 'hand';
-  const discardMinHeightClass = isLandscape ? 'min-h-9' : 'min-h-14';
+  // Discards mirror the hand's look. On phones: full "hand" size in portrait, half that in
+  // landscape (screen is tight there). On iPad/desktop there's room to spare either way, so
+  // discards just match the (already doubled) hand size instead of ever shrinking.
+  const discardTileSize = isLargeScreen ? handSize : (isLandscape ? 'handHalf' : 'hand');
+  const discardMinHeightClass = isLargeScreen ? 'min-h-28' : (isLandscape ? 'min-h-9' : 'min-h-14');
   // Portrait discards line up in a fixed 8-per-row grid, same tile size as the hand.
   const discardGridWidthPx = 8 * HAND_TILE_PX + 7 * HAND_GAP_PX;
 
   const aiAvatarName = (
     <div className="flex items-center gap-2 shrink-0">
-      <div className="w-8 h-8 rounded-full bg-red-600 border border-white/50 flex items-center justify-center text-xs font-bold shrink-0">
+      <div className={`${avatarSizeClass} rounded-full bg-red-600 border border-white/50 flex items-center justify-center ${avatarTextClass} font-bold shrink-0`}>
         AI
       </div>
-      <span className="text-sm font-bold font-serif leading-none whitespace-nowrap">
+      <span className={`${nameTextClass} font-bold font-serif leading-none whitespace-nowrap`}>
         電腦 <span className="text-amber-300 capitalize">{gameState.difficulty}</span>
       </span>
     </div>
@@ -857,51 +868,51 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const aiBankerScore = (
     <div className="flex items-center gap-3 shrink-0">
       {gameState.ai.isBanker && (
-        <span className="text-xs text-amber-300 font-mono whitespace-nowrap">
+        <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
           👑坐莊{gameState.dealerStreak > 1 ? `×${gameState.dealerStreak}` : ''}
         </span>
       )}
-      <span className={`text-base font-black font-mono whitespace-nowrap ${gameState.ai.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
+      <span className={`${scoreTextClass} font-black font-mono whitespace-nowrap ${gameState.ai.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
         {gameState.ai.score.toLocaleString()}
       </span>
     </div>
   );
 
   const aiHandMeldFrame = (
-    <div className="flex gap-1 items-center shrink-0" style={{ width: `${handRowWidthPx}px` }}>
+    <div className={`flex ${handGapClass} items-center shrink-0`} style={{ width: `${handRowWidthPx}px` }}>
       {[...gameState.ai.melds].reverse().map((meld, idx) =>
         renderMeldGroup(meld, 'ai', gameState.ai.melds.length - 1 - idx)
       )}
       {gameState.ai.hand.map((tile, index) => (
-        <ChessTile key={`ai_h_${index}`} tile={tile} size="hand" isFaceDown />
+        <ChessTile key={`ai_h_${index}`} tile={tile} size={handSize} isFaceDown />
       ))}
     </div>
   );
 
   const playerAvatarName = (
     <div className="flex items-center gap-2 shrink-0">
-      <div className="w-8 h-8 rounded-full bg-amber-500 border border-white/50 flex items-center justify-center text-xs font-bold text-[#064e3b] shrink-0">
+      <div className={`${avatarSizeClass} rounded-full bg-amber-500 border border-white/50 flex items-center justify-center ${avatarTextClass} font-bold text-[#064e3b] shrink-0`}>
         你
       </div>
-      <span className="text-sm font-bold font-serif leading-none whitespace-nowrap">{playerName}</span>
+      <span className={`${nameTextClass} font-bold font-serif leading-none whitespace-nowrap`}>{playerName}</span>
     </div>
   );
 
   const playerBankerScore = (
     <div className="flex items-center gap-3 shrink-0">
       {gameState.player.isBanker && (
-        <span className="text-xs text-amber-300 font-mono whitespace-nowrap">
+        <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
           👑坐莊{gameState.dealerStreak > 1 ? `×${gameState.dealerStreak}` : ''}
         </span>
       )}
-      <span className={`text-base font-black font-mono whitespace-nowrap ${gameState.player.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
+      <span className={`${scoreTextClass} font-black font-mono whitespace-nowrap ${gameState.player.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
         {gameState.player.score.toLocaleString()}
       </span>
     </div>
   );
 
   const playerHandMeldFrame = (
-    <div className="flex gap-1 items-center shrink-0" style={{ width: `${handRowWidthPx}px` }}>
+    <div className={`flex ${handGapClass} items-center shrink-0`} style={{ width: `${handRowWidthPx}px` }}>
       {[...gameState.player.melds].reverse().map((meld, idx) =>
         renderMeldGroup(meld, 'player', gameState.player.melds.length - 1 - idx)
       )}
@@ -912,7 +923,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           <ChessTile
             key={tile.id}
             tile={tile}
-            size="hand"
+            size={handSize}
             isSelected={isSelected}
             isClickable={canClick}
             onClick={() => {
@@ -944,7 +955,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         {gameState.phase === 'showMeldSelect' && interrupts.canEat && (
           <button
             onClick={handlePlayerEat}
-            className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+            className={`${bigBtnClass} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
           >
             吃牌
           </button>
@@ -952,7 +963,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         {gameState.phase === 'showMeldSelect' && interrupts.canPong && (
           <button
             onClick={handlePlayerPong}
-            className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+            className={`${bigBtnClass} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
           >
             碰牌
           </button>
@@ -960,7 +971,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         {gameState.phase === 'showMeldSelect' && interrupts.canKong && (
           <button
             onClick={handlePlayerKong}
-            className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+            className={`${bigBtnClass} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
           >
             槓牌
           </button>
@@ -968,7 +979,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         {selfKongOptions.length > 0 && (
           <button
             onClick={handlePlayerSelfKong}
-            className="h-16 rounded-2xl bg-yellow-400 text-black font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition"
+            className={`${bigBtnClass} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
           >
             {selfKongOptions[0].isUpgrade ? '補槓' : '暗槓'}
           </button>
@@ -976,7 +987,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         {((gameState.phase === 'showMeldSelect' && interrupts.canWin) || isSelfDrawWinAvailable) && (
           <button
             onClick={handlePlayerDeclareWin}
-            className="h-16 rounded-2xl bg-red-600 text-white font-black font-serif text-xl shadow-[0_0_16px_4px_rgba(220,38,38,0.65)] ring-2 ring-red-300 active:scale-95 transition"
+            className={`${bigBtnClass} rounded-2xl bg-red-600 text-white font-black font-serif shadow-[0_0_16px_4px_rgba(220,38,38,0.65)] ring-2 ring-red-300 active:scale-95 transition`}
           >
             🔥 胡牌！
           </button>
@@ -987,7 +998,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               if (gameState.phase === 'showMeldSelect') handlePlayerPass();
               else setOwnTurnOfferDismissed(true);
             }}
-            className="h-16 rounded-2xl bg-stone-600 text-white font-black font-serif text-xl shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400 active:scale-95 transition"
+            className={`${bigBtnClass} rounded-2xl bg-stone-600 text-white font-black font-serif shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400 active:scale-95 transition`}
           >
             過
           </button>
@@ -1013,31 +1024,31 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 : 'text-white/70 hover:text-white hover:bg-white/10'
             }`}
           >
-            <LogOut size={18} className="rotate-180" />
+            <LogOut size={headerIconSize} className="rotate-180" />
           </button>
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
             className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition"
           >
-            {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+            {soundEnabled ? <Volume2 size={headerIconSize} /> : <VolumeX size={headerIconSize} />}
           </button>
           <button
             onClick={() => setShowRules(true)}
             className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition"
           >
-            <BookOpen size={15} className="text-amber-200" />
+            <BookOpen size={headerIconSize} className="text-amber-200" />
           </button>
         </div>
 
         <img
           src={liangLogo}
           alt="諒 LIANG GAME"
-          className="w-9 h-9 rounded-full border border-amber-400/50 shadow-md object-cover justify-self-center"
+          className={`${logoSizeClass} rounded-full border border-amber-400/50 shadow-md object-cover justify-self-center`}
         />
 
         <div className="flex items-center gap-1.5 justify-self-end">
-          <span className="text-sm font-extrabold font-serif text-amber-200 leading-none">象棋麻將</span>
-          <span className="bg-amber-500 text-[#064e3b] text-sm font-black px-1.5 py-0.5 rounded leading-none">
+          <span className={`${nameTextClass} font-extrabold font-serif text-amber-200 leading-none`}>象棋麻將</span>
+          <span className={`bg-amber-500 text-[#064e3b] ${nameTextClass} font-black px-1.5 py-0.5 rounded leading-none`}>
             {gameState.mode}子
           </span>
         </div>
@@ -1065,7 +1076,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── AI DISCARDS ── */}
       <div className={`flex-1 ${discardMinHeightClass} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}>
         <div
-          className={isLandscape ? 'flex flex-wrap gap-1 content-start' : 'grid gap-1 content-start mx-auto'}
+          className={isLandscape ? `flex flex-wrap ${handGapClass} content-start` : `grid ${handGapClass} content-start mx-auto`}
           style={!isLandscape ? { gridTemplateColumns: `repeat(8, ${HAND_TILE_PX}px)`, width: `${discardGridWidthPx}px` } : undefined}
         >
           {gameState.ai.discards.map((tile, index) => {
@@ -1083,7 +1094,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── PLAYER DISCARDS ── */}
       <div className={`flex-1 ${discardMinHeightClass} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}>
         <div
-          className={isLandscape ? 'flex flex-wrap gap-1 content-start' : 'grid gap-1 content-start mx-auto'}
+          className={isLandscape ? `flex flex-wrap ${handGapClass} content-start` : `grid ${handGapClass} content-start mx-auto`}
           style={!isLandscape ? { gridTemplateColumns: `repeat(8, ${HAND_TILE_PX}px)`, width: `${discardGridWidthPx}px` } : undefined}
         >
           {gameState.player.discards.map((tile, index) => {
@@ -1137,7 +1148,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             }}
             animate={canDiscard ? { y: [0, -6, 0] } : { y: 0 }}
             transition={canDiscard ? { repeat: Infinity, duration: 1.1 } : { duration: 0.2 }}
-            className={`flex-1 h-16 rounded-2xl font-bold font-serif text-xl transition-colors flex items-center justify-center ${
+            className={`flex-1 ${bigBtnClass} rounded-2xl font-bold font-serif transition-colors flex items-center justify-center ${
               canDiscard
                 ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
                 : 'bg-stone-800/60 text-stone-500'
@@ -1151,7 +1162,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             onClick={handlePlayerDraw}
             animate={canDraw ? { y: [0, -6, 0] } : { y: 0 }}
             transition={canDraw ? { repeat: Infinity, duration: 1.1 } : { duration: 0.2 }}
-            className={`flex-1 h-16 rounded-2xl font-bold font-serif text-xl transition-colors flex items-center justify-center gap-2 ${
+            className={`flex-1 ${bigBtnClass} rounded-2xl font-bold font-serif transition-colors flex items-center justify-center gap-2 ${
               canDraw
                 ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
                 : 'bg-stone-800/60 text-stone-500'
@@ -1167,7 +1178,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           className="px-3 py-2 flex items-center gap-2"
           style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
         >
-          <div className="flex-1 text-base font-serif font-semibold min-w-0 text-white">
+          <div className={`flex-1 ${hintTextClass} font-serif font-semibold min-w-0 text-white`}>
             {gameState.turn === 'player' && gameState.phase === 'drawing' && (
               <span className="animate-pulse">👉 請按「摸牌」</span>
             )}
