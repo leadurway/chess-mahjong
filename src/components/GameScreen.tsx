@@ -880,10 +880,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       ))
     : null;
 
-  // Portrait discards line up in a fixed 8-per-row grid; tile size matches whatever discards
-  // are actually rendered at (the row-count-driven size on large screens, hand size on phones).
+  // Portrait discards line up in a grid; tile size matches whatever discards are actually
+  // rendered at (the row-count-driven size on large screens, hand size on phones).
   const discardGridTilePx = discardComputedTilePx ?? HAND_TILE_PX;
   const discardGridWidthPx = 8 * discardGridTilePx + 7 * HAND_GAP_PX;
+  // iPad portrait: rather than a fixed 8-per-row grid (matching the hand row's width), let
+  // CSS grid auto-fill as many tiles as the actual available width allows at the computed
+  // tile size, so each of the 3 rows packs the maximum tile count instead of being capped at
+  // 8. Phone portrait keeps the original fixed 8-per-row layout.
+  const portraitAutoFillDiscards = isLargeScreen && !isLandscape;
 
   const aiAvatarName = (
     <div className="flex items-center gap-2 shrink-0">
@@ -1107,8 +1112,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── AI DISCARDS ── */}
       <div ref={discardAreaRef} className={`flex-1 ${discardMinHeightClass} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}>
         <div
-          className={isLandscape ? `flex flex-wrap ${handGapClass} content-start` : `grid ${handGapClass} content-start mx-auto`}
-          style={!isLandscape ? { gridTemplateColumns: `repeat(8, ${discardGridTilePx}px)`, width: `${discardGridWidthPx}px` } : undefined}
+          className={
+            isLandscape
+              ? `flex flex-wrap ${handGapClass} content-start`
+              : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
+          }
+          style={!isLandscape ? {
+            gridTemplateColumns: portraitAutoFillDiscards
+              ? `repeat(auto-fill, ${discardGridTilePx}px)`
+              : `repeat(8, ${discardGridTilePx}px)`,
+            width: portraitAutoFillDiscards ? '100%' : `${discardGridWidthPx}px`,
+          } : undefined}
         >
           {gameState.ai.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'ai' && gameState.lastDiscard?.id === tile.id;
@@ -1129,8 +1143,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── PLAYER DISCARDS ── */}
       <div className={`flex-1 ${discardMinHeightClass} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}>
         <div
-          className={isLandscape ? `flex flex-wrap ${handGapClass} content-start` : `grid ${handGapClass} content-start mx-auto`}
-          style={!isLandscape ? { gridTemplateColumns: `repeat(8, ${discardGridTilePx}px)`, width: `${discardGridWidthPx}px` } : undefined}
+          className={
+            isLandscape
+              ? `flex flex-wrap ${handGapClass} content-start`
+              : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
+          }
+          style={!isLandscape ? {
+            gridTemplateColumns: portraitAutoFillDiscards
+              ? `repeat(auto-fill, ${discardGridTilePx}px)`
+              : `repeat(8, ${discardGridTilePx}px)`,
+            width: portraitAutoFillDiscards ? '100%' : `${discardGridWidthPx}px`,
+          } : undefined}
         >
           {gameState.player.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'player' && gameState.lastDiscard?.id === tile.id;
