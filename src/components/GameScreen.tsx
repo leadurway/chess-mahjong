@@ -70,9 +70,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // just fits — instead of a fixed tile size showing however many rows happen to fit, with
   // the rest requiring a scroll. Player and AI discard areas are both flex-1 siblings sharing
   // the same remaining vertical space, so measuring just one (the AI one) covers both.
+  // Phones never measure at all and keep their original fixed discard sizes (hand/handHalf)
+  // completely untouched by any of this — isLargeScreen gates the observer itself, not just
+  // how its result is used, so there's no path by which it could affect phone rendering.
   const discardAreaRef = useRef<HTMLDivElement>(null);
   const [discardAreaHeight, setDiscardAreaHeight] = useState(0);
   useEffect(() => {
+    if (!isLargeScreen) { setDiscardAreaHeight(0); return; }
     const el = discardAreaRef.current;
     if (!el) return;
     const update = () => setDiscardAreaHeight(el.clientHeight);
@@ -80,7 +84,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [isLargeScreen]);
 
   const handleExitClick = () => {
     if (confirmExit) {
