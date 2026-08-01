@@ -856,9 +856,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // screens instead collects as a neutral gap between the two discard piles (see the spacer
   // between the AI/player discard blocks below) — like table space.
   const discardTileSize = isLargeScreen ? handSize : 'hand';
-  // Phone landscape: a single non-wrapping row you scroll horizontally, rather than wrapping
-  // into several rows — screen height is too tight in landscape to spare for more than one.
-  const phoneLandscapeDiscards = isLandscape && !isLargeScreen;
+  // Phone landscape specifically (not iPad landscape) — used both for the discard rows below
+  // (single non-wrapping row, scrolled horizontally, since screen height is too tight in
+  // landscape to spare for more than one) and for the merged info/hand/score row further down
+  // (shifted inward and padded clear of the camera housing/notch, which sits left or right in
+  // this orientation).
+  const isPhoneLandscape = isLandscape && !isLargeScreen;
   const discardMinHeightClass = 'min-h-14'; // phones only — single "hand"-size tile row now in both orientations
   const discardRowsTarget = isLargeScreen ? (isLandscape ? 2 : 3) : null;
   const DISCARD_AREA_PADDING_PX = 12; // py-1.5 (6px top + 6px bottom)
@@ -1076,10 +1079,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── AI SECTION: portrait = info row + hand row stacked; landscape = merged single row ── */}
       {isLandscape ? (
-        <div className="shrink-0 w-full px-3 py-1.5 bg-black/20 border-b border-white/5 flex items-center gap-2">
-          {aiAvatarName}
+        <div
+          className={`shrink-0 w-full ${isPhoneLandscape ? 'py-1.5' : 'px-3 py-1.5'} bg-black/20 border-b border-white/5 flex items-center gap-2`}
+          style={isPhoneLandscape ? {
+            paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+            paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+          } : undefined}
+        >
+          <div style={isPhoneLandscape ? { marginLeft: `${HAND_TILE_PX}px` } : undefined}>{aiAvatarName}</div>
           <div className="flex-1 min-w-0 flex justify-center overflow-x-auto">{aiHandMeldFrame}</div>
-          {aiBankerScore}
+          <div style={isPhoneLandscape ? { marginRight: `${HAND_TILE_PX}px` } : undefined}>{aiBankerScore}</div>
         </div>
       ) : (
         <>
@@ -1095,11 +1104,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── AI DISCARDS ── */}
       <div
-        className={`${isLargeScreen ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${phoneLandscapeDiscards ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
+        className={`${isLargeScreen ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
         style={
           isLargeScreen
             ? { height: `${discardAreaFixedHeightPx}px` }
-            : phoneLandscapeDiscards
+            : isPhoneLandscape
               // iPhones with a notch/Dynamic Island shift it into one side in landscape —
               // reserve that safe area instead of scrolling content underneath it.
               ? { paddingLeft: 'max(0.5rem, env(safe-area-inset-left))', paddingRight: 'max(0.5rem, env(safe-area-inset-right))' }
@@ -1108,7 +1117,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       >
         <div
           className={
-            phoneLandscapeDiscards
+            isPhoneLandscape
               ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
               : isLandscape
                 ? `flex flex-wrap ${handGapClass} content-start`
@@ -1141,11 +1150,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── PLAYER DISCARDS ── */}
       <div
-        className={`${isLargeScreen ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${phoneLandscapeDiscards ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
+        className={`${isLargeScreen ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
         style={
           isLargeScreen
             ? { height: `${discardAreaFixedHeightPx}px` }
-            : phoneLandscapeDiscards
+            : isPhoneLandscape
               // iPhones with a notch/Dynamic Island shift it into one side in landscape —
               // reserve that safe area instead of scrolling content underneath it.
               ? { paddingLeft: 'max(0.5rem, env(safe-area-inset-left))', paddingRight: 'max(0.5rem, env(safe-area-inset-right))' }
@@ -1154,7 +1163,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       >
         <div
           className={
-            phoneLandscapeDiscards
+            isPhoneLandscape
               ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
               : isLandscape
                 ? `flex flex-wrap ${handGapClass} content-start`
@@ -1182,10 +1191,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── PLAYER HAND SECTION (relative anchor for the popup — never covers the hand itself) ── */}
       <div className="relative shrink-0">
         {isLandscape ? (
-          <div className="w-full px-3 py-1.5 bg-black/20 border-b border-white/5 flex items-center gap-2">
-            {playerAvatarName}
+          <div
+            className={`w-full ${isPhoneLandscape ? 'py-1.5' : 'px-3 py-1.5'} bg-black/20 border-b border-white/5 flex items-center gap-2`}
+            style={isPhoneLandscape ? {
+              paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+              paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+            } : undefined}
+          >
+            <div style={isPhoneLandscape ? { marginLeft: `${HAND_TILE_PX}px` } : undefined}>{playerAvatarName}</div>
             <div className="flex-1 min-w-0 flex justify-center overflow-x-auto">{playerHandMeldFrame}</div>
-            {playerBankerScore}
+            <div style={isPhoneLandscape ? { marginRight: `${HAND_TILE_PX}px` } : undefined}>{playerBankerScore}</div>
           </div>
         ) : (
           <div className="w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10 flex justify-center overflow-x-auto">
