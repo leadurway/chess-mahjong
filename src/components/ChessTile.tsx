@@ -14,12 +14,35 @@ interface ChessTileProps {
   /** Hand tile picked for discard: keeps its normal face, adds a yellow glow ring + gentle bounce. */
   isSelected?: boolean;
   isClickable?: boolean;
-  /** Exposed meld / winning-tile display: tile stays at full size, with a glow ring overlaid
-   * between its own inner and outer border (not a separate outer halo the tile shrinks to fit
-   * inside). */
+  /** Exposed meld / winning-tile display: tile stays at full size. The glow's solid ring exactly
+   * fills the band between the tile's own inner and outer border; its soft halo is allowed to
+   * bleed both outward and inward past that band, so the halo (not the ring) can visually exceed
+   * the tile's own bounds. */
   glow?: 'blue' | 'red';
   onClick?: () => void;
   id?: string;
+}
+
+// RGB triples shared by the ring+halo overlay below, keyed by glow color.
+const GLOW_RGB: Record<'yellow' | 'blue' | 'red', string> = {
+  yellow: '250,204,21',
+  blue: '59,130,246',
+  red: '239,68,68',
+};
+
+// A ring that exactly fills the band between the tile's own outer border (its edge) and its
+// inner decorative border (inset-[8%]) — done via a radial-gradient "donut" rather than a
+// fixed-width ring, so it lines up correctly regardless of the tile's actual rendered pixel size
+// (fixed hand/handLg sizes, or a fluid `winReveal` grid column). `circle closest-side` makes the
+// gradient's 100% match the box's own half-width, so 84% (= (100-2*8)/100) lands exactly on the
+// inner border. The halo (blurred box-shadow) is deliberately not clipped, so it can bleed both
+// outward and inward past the tile's own edge.
+function glowOverlayStyle(color: 'yellow' | 'blue' | 'red'): React.CSSProperties {
+  const rgb = GLOW_RGB[color];
+  return {
+    background: `radial-gradient(circle closest-side, transparent 84%, rgba(${rgb},1) 84%, rgba(${rgb},1) 100%)`,
+    boxShadow: `0 0 12px 4px rgba(${rgb},0.7), inset 0 0 12px 4px rgba(${rgb},0.7)`,
+  };
 }
 
 const SIZE_CLASSES: Record<NonNullable<ChessTileProps['size']>, { box: string; font: string }> = {
@@ -79,11 +102,7 @@ export const ChessTile: React.FC<ChessTileProps> = ({
   // even when this tile's own box is fluid-width (e.g. a CSS grid column) rather than fixed px.
   const faceContent = (
     <div
-      className={`
-        w-full h-full relative rounded-full flex items-center justify-center select-none
-        border-2 bg-[#fdfcf0] border-[#d1d5db] transition-shadow @container
-        ${isSelected ? 'ring-4 ring-inset ring-yellow-400 shadow-[inset_0_0_14px_4px_rgba(250,204,21,0.75)]' : ''}
-      `}
+      className="w-full h-full relative rounded-full flex items-center justify-center select-none border-2 bg-[#fdfcf0] border-[#d1d5db] transition-shadow @container"
     >
       <div className="absolute inset-[8%] border border-red-950/50 rounded-full pointer-events-none" />
       <span className={`${fontClass} ${textStyle} font-black leading-none select-none drop-shadow-[0_1px_0_rgba(255,255,255,0.6)]`}>
@@ -93,22 +112,18 @@ export const ChessTile: React.FC<ChessTileProps> = ({
   );
 
   const inner = isFaceDown ? backContent : faceContent;
+  const activeGlow: 'yellow' | 'blue' | 'red' | undefined = isSelected ? 'yellow' : glow;
 
   // The outer box defines the actual rendered size — the tile itself always fills it fully,
-  // glow or not. `ring-inset` + an inset box-shadow keep the glow ring drawn INWARD from this
-  // div's own edge (Tailwind's ring/shadow utilities default to drawing outward, which would
-  // otherwise bleed past the tile's box and make it look larger than its neighbors).
+  // glow or not. The glow overlay sits on top at full box size (its ring band is carved out via
+  // the radial-gradient math above); the z-index bump lets its halo, which intentionally bleeds
+  // past this tile's own box, paint over neighboring tiles instead of being clipped underneath
+  // them (adjacent flex/grid siblings otherwise paint on top per DOM order).
   const box = (
-    <div className={`${widthClass} aspect-square relative`} style={boxStyle}>
+    <div className={`${widthClass} aspect-square relative ${activeGlow ? 'z-10' : ''}`} style={boxStyle}>
       {inner}
-      {glow && (
-        <div
-          className={`absolute inset-[3%] rounded-full pointer-events-none ${
-            glow === 'red'
-              ? 'ring-4 ring-inset ring-red-500 shadow-[inset_0_0_12px_4px_rgba(239,68,68,0.7)]'
-              : 'ring-4 ring-inset ring-blue-400 shadow-[inset_0_0_12px_4px_rgba(59,130,246,0.65)]'
-          }`}
-        />
+      {activeGlow && (
+        <div className="absolute inset-0 rounded-full pointer-events-none" style={glowOverlayStyle(activeGlow)} />
       )}
     </div>
   );
