@@ -846,16 +846,20 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const handSlotCount = gameState.mode === 32 ? 5 : 8;
   const handRowWidthPx = handSlotCount * HAND_TILE_PX + (handSlotCount - 1) * HAND_GAP_PX;
 
-  // Discards mirror the hand's look. On phones: full "hand" size in portrait, half that in
-  // landscape (screen is tight there) — untouched. On iPad/desktop, discards use the same
-  // doubled hand tile size, and the discard AREA's height is a fixed value sized to exactly
-  // fit a target row count (3 in portrait, 2 in landscape/desktop) — rather than a flex-1
-  // area stretched to fill whatever's left of a much-taller viewport, which used to leave a
-  // large empty gap under the first row or two of actual discards. Any real leftover space on
-  // very tall/wide large screens instead collects as a neutral gap between the two discard
-  // piles (see the spacer between the AI/player discard blocks below) — like table space.
-  const discardTileSize = isLargeScreen ? handSize : (isLandscape ? 'handHalf' : 'hand');
-  const discardMinHeightClass = isLandscape ? 'min-h-9' : 'min-h-14'; // phones only now
+  // Discards mirror the hand's look. On phones: full "hand" size in both portrait AND
+  // landscape now (landscape used to shrink to half size — no longer, so discards read as
+  // clearly as the hand does). On iPad/desktop, discards use the same doubled hand tile size,
+  // and the discard AREA's height is a fixed value sized to exactly fit a target row count (3
+  // in portrait, 2 in landscape/desktop) — rather than a flex-1 area stretched to fill
+  // whatever's left of a much-taller viewport, which used to leave a large empty gap under
+  // the first row or two of actual discards. Any real leftover space on very tall/wide large
+  // screens instead collects as a neutral gap between the two discard piles (see the spacer
+  // between the AI/player discard blocks below) — like table space.
+  const discardTileSize = isLargeScreen ? handSize : 'hand';
+  // Phone landscape: a single non-wrapping row you scroll horizontally, rather than wrapping
+  // into several rows — screen height is too tight in landscape to spare for more than one.
+  const phoneLandscapeDiscards = isLandscape && !isLargeScreen;
+  const discardMinHeightClass = 'min-h-14'; // phones only — single "hand"-size tile row now in both orientations
   const discardRowsTarget = isLargeScreen ? (isLandscape ? 2 : 3) : null;
   const DISCARD_AREA_PADDING_PX = 12; // py-1.5 (6px top + 6px bottom)
   const discardAreaFixedHeightPx = discardRowsTarget
@@ -1091,14 +1095,24 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── AI DISCARDS ── */}
       <div
-        className={`${isLargeScreen ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
-        style={isLargeScreen ? { height: `${discardAreaFixedHeightPx}px` } : undefined}
+        className={`${isLargeScreen ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${phoneLandscapeDiscards ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
+        style={
+          isLargeScreen
+            ? { height: `${discardAreaFixedHeightPx}px` }
+            : phoneLandscapeDiscards
+              // iPhones with a notch/Dynamic Island shift it into one side in landscape —
+              // reserve that safe area instead of scrolling content underneath it.
+              ? { paddingLeft: 'max(0.5rem, env(safe-area-inset-left))', paddingRight: 'max(0.5rem, env(safe-area-inset-right))' }
+              : undefined
+        }
       >
         <div
           className={
-            isLandscape
-              ? `flex flex-wrap ${handGapClass} content-start`
-              : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
+            phoneLandscapeDiscards
+              ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
+              : isLandscape
+                ? `flex flex-wrap ${handGapClass} content-start`
+                : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
           }
           style={!isLandscape ? {
             gridTemplateColumns: portraitAutoFillDiscards
@@ -1110,7 +1124,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {gameState.ai.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'ai' && gameState.lastDiscard?.id === tile.id;
             return (
-              <div key={`ai_d_${index}`} className="relative">
+              <div key={`ai_d_${index}`} className="relative shrink-0">
                 <ChessTile tile={tile} size={discardTileSize} />
                 {isLatest && <div className="absolute inset-0 rounded-full ring-2 ring-amber-400 animate-pulse pointer-events-none" />}
               </div>
@@ -1127,14 +1141,24 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── PLAYER DISCARDS ── */}
       <div
-        className={`${isLargeScreen ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full px-2 py-1.5 bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
-        style={isLargeScreen ? { height: `${discardAreaFixedHeightPx}px` } : undefined}
+        className={`${isLargeScreen ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${phoneLandscapeDiscards ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
+        style={
+          isLargeScreen
+            ? { height: `${discardAreaFixedHeightPx}px` }
+            : phoneLandscapeDiscards
+              // iPhones with a notch/Dynamic Island shift it into one side in landscape —
+              // reserve that safe area instead of scrolling content underneath it.
+              ? { paddingLeft: 'max(0.5rem, env(safe-area-inset-left))', paddingRight: 'max(0.5rem, env(safe-area-inset-right))' }
+              : undefined
+        }
       >
         <div
           className={
-            isLandscape
-              ? `flex flex-wrap ${handGapClass} content-start`
-              : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
+            phoneLandscapeDiscards
+              ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
+              : isLandscape
+                ? `flex flex-wrap ${handGapClass} content-start`
+                : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
           }
           style={!isLandscape ? {
             gridTemplateColumns: portraitAutoFillDiscards
@@ -1146,7 +1170,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {gameState.player.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'player' && gameState.lastDiscard?.id === tile.id;
             return (
-              <div key={`player_d_${index}`} className="relative">
+              <div key={`player_d_${index}`} className="relative shrink-0">
                 <ChessTile tile={tile} size={discardTileSize} />
                 {isLatest && <div className="absolute inset-0 rounded-full ring-2 ring-red-400 animate-pulse pointer-events-none" />}
               </div>
