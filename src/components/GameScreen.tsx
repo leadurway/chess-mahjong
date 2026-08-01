@@ -1086,9 +1086,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
           } : undefined}
         >
-          <div style={isPhoneLandscape ? { marginLeft: `${HAND_TILE_PX}px` } : undefined}>{aiAvatarName}</div>
+          {aiAvatarName}
           <div className="flex-1 min-w-0 flex justify-center overflow-x-auto">{aiHandMeldFrame}</div>
-          <div style={isPhoneLandscape ? { marginRight: `${HAND_TILE_PX}px` } : undefined}>{aiBankerScore}</div>
+          {aiBankerScore}
         </div>
       ) : (
         <>
@@ -1198,9 +1198,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
             } : undefined}
           >
-            <div style={isPhoneLandscape ? { marginLeft: `${HAND_TILE_PX}px` } : undefined}>{playerAvatarName}</div>
+            {playerAvatarName}
             <div className="flex-1 min-w-0 flex justify-center overflow-x-auto">{playerHandMeldFrame}</div>
-            <div style={isPhoneLandscape ? { marginRight: `${HAND_TILE_PX}px` } : undefined}>{playerBankerScore}</div>
+            {playerBankerScore}
           </div>
         ) : (
           <div className="w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10 flex justify-center overflow-x-auto">
