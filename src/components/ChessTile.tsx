@@ -40,7 +40,7 @@ const GLOW_RGB: Record<'yellow' | 'blue' | 'red', string> = {
 export function glowOverlayStyle(color: 'yellow' | 'blue' | 'red'): React.CSSProperties {
   const rgb = GLOW_RGB[color];
   return {
-    background: `radial-gradient(circle closest-side, transparent 65%, rgba(${rgb},1) 65%, rgba(${rgb},1) 100%)`,
+    background: `radial-gradient(circle closest-side, transparent 75%, rgba(${rgb},1) 75%, rgba(${rgb},1) 100%)`,
     boxShadow: `0 0 12px 4px rgba(${rgb},0.7), inset 0 0 12px 4px rgba(${rgb},0.7)`,
   };
 }
