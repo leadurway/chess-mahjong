@@ -14,7 +14,9 @@ interface ChessTileProps {
   /** Hand tile picked for discard: keeps its normal face, adds a yellow glow ring + gentle bounce. */
   isSelected?: boolean;
   isClickable?: boolean;
-  /** Exposed meld display: tile renders at 90% with a glowing halo filling the remaining 10%. */
+  /** Exposed meld / winning-tile display: tile stays at full size, with a glow ring overlaid
+   * between its own inner and outer border (not a separate outer halo the tile shrinks to fit
+   * inside). */
   glow?: 'blue' | 'red';
   onClick?: () => void;
   id?: string;
@@ -92,23 +94,24 @@ export const ChessTile: React.FC<ChessTileProps> = ({
 
   const inner = isFaceDown ? backContent : faceContent;
 
-  // The outer box defines the actual rendered size. Kong's center tile (red glow) gets a
-  // z-index bump so its ring + glow shadow — which visually overflow past this tile's own
-  // box — render above the neighboring flanking tiles instead of being clipped underneath
-  // them (adjacent flex/grid siblings otherwise paint on top per DOM order).
-  const box = glow ? (
+  // The outer box defines the actual rendered size — the tile itself always fills it fully,
+  // glow or not. Kong's center tile (red glow) gets a z-index bump so its ring + glow shadow —
+  // which visually overflow past this tile's own box — render above the neighboring flanking
+  // tiles instead of being clipped underneath them (adjacent flex/grid siblings otherwise
+  // paint on top per DOM order).
+  const box = (
     <div className={`${widthClass} aspect-square relative ${glow === 'red' ? 'z-10' : ''}`} style={boxStyle}>
-      <div
-        className={`absolute inset-0 rounded-full ${
-          glow === 'red'
-            ? 'ring-4 ring-red-500 shadow-[0_0_12px_4px_rgba(239,68,68,0.7)]'
-            : 'ring-4 ring-blue-400 shadow-[0_0_12px_4px_rgba(59,130,246,0.65)]'
-        }`}
-      />
-      <div className="absolute inset-[5%]">{inner}</div>
+      {inner}
+      {glow && (
+        <div
+          className={`absolute inset-[3%] rounded-full pointer-events-none ${
+            glow === 'red'
+              ? 'ring-4 ring-red-500 shadow-[0_0_12px_4px_rgba(239,68,68,0.7)]'
+              : 'ring-4 ring-blue-400 shadow-[0_0_12px_4px_rgba(59,130,246,0.65)]'
+          }`}
+        />
+      )}
     </div>
-  ) : (
-    <div className={`${widthClass} aspect-square`} style={boxStyle}>{inner}</div>
   );
 
   if (!isClickable) return <div id={id}>{box}</div>;
