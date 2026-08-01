@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BookOpen, Volume2, VolumeX, LogOut, Info, ArrowRight, ScrollText, X } from 'lucide-react';
 import { Tile, GameMode, Difficulty, Meld, PlayerState, GameState } from '../types';
-import { ChessTile } from './ChessTile';
+import { ChessTile, glowOverlayStyle } from './ChessTile';
 import {
   generateTilePool,
   isWinningHand,
@@ -1133,9 +1133,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {gameState.ai.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'ai' && gameState.lastDiscard?.id === tile.id;
             return (
-              <div key={`ai_d_${index}`} className="relative shrink-0">
+              <div key={`ai_d_${index}`} className={`relative shrink-0 ${isLatest ? 'z-10' : ''}`}>
                 <ChessTile tile={tile} size={discardTileSize} />
-                {isLatest && <div className="absolute inset-0 rounded-full ring-2 ring-amber-400 animate-pulse pointer-events-none" />}
+                {isLatest && <div className="absolute inset-0 rounded-full animate-pulse pointer-events-none" style={glowOverlayStyle('yellow')} />}
               </div>
             );
           })}
@@ -1179,9 +1179,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {gameState.player.discards.map((tile, index) => {
             const isLatest = gameState.lastDiscardSender === 'player' && gameState.lastDiscard?.id === tile.id;
             return (
-              <div key={`player_d_${index}`} className="relative shrink-0">
+              <div key={`player_d_${index}`} className={`relative shrink-0 ${isLatest ? 'z-10' : ''}`}>
                 <ChessTile tile={tile} size={discardTileSize} />
-                {isLatest && <div className="absolute inset-0 rounded-full ring-2 ring-red-400 animate-pulse pointer-events-none" />}
+                {isLatest && <div className="absolute inset-0 rounded-full animate-pulse pointer-events-none" style={glowOverlayStyle('yellow')} />}
               </div>
             );
           })}

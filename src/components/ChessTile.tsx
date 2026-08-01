@@ -30,17 +30,17 @@ const GLOW_RGB: Record<'yellow' | 'blue' | 'red', string> = {
   red: '239,68,68',
 };
 
-// A ring that exactly fills the band between the tile's own outer border (its edge) and its
-// inner decorative border (inset-[8%]) — done via a radial-gradient "donut" rather than a
-// fixed-width ring, so it lines up correctly regardless of the tile's actual rendered pixel size
-// (fixed hand/handLg sizes, or a fluid `winReveal` grid column). `circle closest-side` makes the
-// gradient's 100% match the box's own half-width, so 84% (= (100-2*8)/100) lands exactly on the
-// inner border. The halo (blurred box-shadow) is deliberately not clipped, so it can bleed both
-// outward and inward past the tile's own edge.
-function glowOverlayStyle(color: 'yellow' | 'blue' | 'red'): React.CSSProperties {
+// A ring band around the tile's own inner decorative border (inset-[8%]) — done via a
+// radial-gradient "donut" rather than a fixed-width ring, so it lines up correctly regardless of
+// the tile's actual rendered pixel size (fixed hand/handLg sizes, or a fluid `winReveal` grid
+// column). `circle closest-side` makes the gradient's 100% match the box's own half-width. The
+// inner stop is pulled in past the inner border itself (rather than stopping exactly at it) so
+// the ring reads as thick/prominent. The halo (blurred box-shadow) is deliberately not clipped,
+// so it can bleed both outward and inward past the tile's own edge.
+export function glowOverlayStyle(color: 'yellow' | 'blue' | 'red'): React.CSSProperties {
   const rgb = GLOW_RGB[color];
   return {
-    background: `radial-gradient(circle closest-side, transparent 84%, rgba(${rgb},1) 84%, rgba(${rgb},1) 100%)`,
+    background: `radial-gradient(circle closest-side, transparent 65%, rgba(${rgb},1) 65%, rgba(${rgb},1) 100%)`,
     boxShadow: `0 0 12px 4px rgba(${rgb},0.7), inset 0 0 12px 4px rgba(${rgb},0.7)`,
   };
 }
