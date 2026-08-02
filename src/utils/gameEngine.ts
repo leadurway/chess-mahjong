@@ -426,16 +426,24 @@ export function calculateFans(
   exposedMelds: Meld[],
   isSelfDraw: boolean,
   isFirstMove: boolean,
-  isWinnerBanker: boolean
+  isWinnerBanker: boolean,
+  dealerStreak: number
 ): { name: string; value: number }[] {
   const fans: { name: string; value: number }[] = [];
-  
+
   // Base Win / 贏牌底
   fans.push({ name: '胡牌 (Base Win)', value: 1 });
 
   // Self Draw
   if (isSelfDraw) {
     fans.push({ name: '自摸 (Self Draw)', value: 1 });
+  }
+
+  // Dealer streak (連莊): only two seats are ever in play (player vs AI), so a streak belongs
+  // to "the current round's dealer" rather than to whichever side actually wins this hand — the
+  // bonus applies the same whether the dealer wins or is the one who gets won against.
+  if (dealerStreak > 1) {
+    fans.push({ name: `連莊 (Dealer Streak, 連${dealerStreak - 1}莊)`, value: dealerStreak - 1 });
   }
 
   // Concealed Hand — a self-declared concealed kong (暗槓) doesn't break 門清.

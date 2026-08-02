@@ -708,7 +708,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     // made their opening discard, so that stricter check could never be true and 地胡 could
     // never actually fire. Each side's own discard count is what matters.
     const isFirstMove = winnerState.discards.length === 0;
-    const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, isSelfDraw, isFirstMove, winnerState.isBanker);
+    const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, isSelfDraw, isFirstMove, winnerState.isBanker, gameState.dealerStreak);
     const totalFans = fansCalculated.reduce((sum, f) => sum + f.value, 0);
     const payout = calculatePayout(totalFans);
     const winnerMelds = winnerState.melds;
