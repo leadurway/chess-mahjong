@@ -156,10 +156,19 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
           </ul>
         </div>
 
-        {/* Section 4: Scoring Fan table */}
+        {/* Section 4: Scoring Fan table — 32/56/64 子型各自獨立的台數表，對應
+            src/utils/gameEngine.ts 的 calculateFans()。三種模式的牌型結構不同（32子僅
+            1組面子＋眼睛；56/64子有2組面子＋眼睛），能達成的台數項目也因此不同，而非單純數值
+            差異，所以分成三張表格，不合併成一張表。 */}
         <div>
-          <h3 className="text-lg md:text-2xl font-semibold text-amber-300 mb-3 font-serif">4. 計台標準 (Fans Score)</h3>
-          <div className="bg-stone-800 rounded-xl overflow-hidden border border-stone-700">
+          <h3 className="text-lg md:text-2xl font-semibold text-amber-300 mb-2 font-serif">4. 計台標準 (Fans Score)</h3>
+          <p className="text-stone-300 text-sm md:text-lg mb-4">
+            結算金額 = 底額 + (總台數 × 每台金額)。「連莊」為本局獨有規則（因僅玩家與電腦兩方對戰）：現任莊家每連莊一次即加
+            1 台，不論該局是莊家胡牌或被閒家胡，都會計入台數。
+          </p>
+
+          <h4 className="text-amber-300/90 font-semibold mb-2 font-serif text-sm md:text-xl">32 子型（經典傳統，1組面子＋1對眼睛）</h4>
+          <div className="bg-stone-800 rounded-xl overflow-hidden border border-stone-700 mb-6">
             <table className="min-w-full text-xs md:text-base text-left text-stone-300">
               <thead className="bg-stone-750 text-amber-400 border-b border-stone-700 font-serif">
                 <tr>
@@ -169,66 +178,46 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-700">
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">胡牌</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">成功胡牌的基本台數。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">莊家</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">本局身為莊家，不論胡牌或放槍給閒家都加計。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">聽牌</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">胡牌前已宣告「聽牌」（宣告後不能再吃、碰、槓，且只能打出剛摸到的牌）。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">清一色</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">胡牌手牌全為紅棋或全為黑棋。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">海底撈月</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">摸進牌牆最後一張牌，或開槓補牌後自摸胡牌。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">自摸</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4">自己摸進最後一張胡牌棋子。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">將帥聽令</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4">胡牌時的眼睛（對子）為「將」或「帥」。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">五兵合縱／五卒連橫</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">5 台</td><td className="px-4 py-3 md:px-6 md:py-4">手牌直接集齊 5 張同色的「兵」或「卒」（無視面子結構直接胡牌）。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">天胡</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">6 台</td><td className="px-4 py-3 md:px-6 md:py-4">莊家起手配牌即完成胡牌。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">地胡</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">6 台</td><td className="px-4 py-3 md:px-6 md:py-4">閒家在第一巡摸進第一張棋子時即自摸胡牌。</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 className="text-amber-300/90 font-semibold mb-2 font-serif text-sm md:text-xl">56 / 64 子型（多張型，2組面子＋1對眼睛）</h4>
+          <p className="text-stone-400 text-xs md:text-base mb-2">
+            56子型每種棋各 4 張；64子型為兩副完整棋（每色兵/卒各 10 張），因此「五兵合縱／五卒連橫」與「八家將」只有 64
+            子型才可能湊到、56子型不會出現。
+          </p>
+          <div className="bg-stone-800 rounded-xl overflow-hidden border border-stone-700">
+            <table className="min-w-full text-xs md:text-base text-left text-stone-300">
+              <thead className="bg-stone-750 text-amber-400 border-b border-stone-700 font-serif">
                 <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">胡牌 (Winning Base)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">成功胡牌的基本台數。</td>
+                  <th className="px-4 py-3 md:px-6 md:py-4">台數名稱</th>
+                  <th className="px-4 py-3 md:px-6 md:py-4">56子</th>
+                  <th className="px-4 py-3 md:px-6 md:py-4">64子</th>
+                  <th className="px-4 py-3 md:px-6 md:py-4">達成條件</th>
                 </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">自摸 (Self-Draw)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">自己摸起贏牌所需的最後一張牌。</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">門清 (Concealed Hand)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">整局不吃、不碰也不槓（暗槓除外），全憑手牌胡牌。</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">全紅 (All Red)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">4 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">胡牌時手牌加亮牌全部都是紅色棋子（帥仕相、車馬炮、兵）。</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">全黑 (All Black)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">4 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">胡牌時手牌加亮牌全部都是黑色棋子（將士象、車馬包、卒）。</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">半紅黑 (Half Red Black)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">胡牌的搭子中，正好包含紅色與黑色搭子。</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">碰碰胡 (All Triples)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">胡牌的搭子組合全都是刻子（三重字）。</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">兵卒刻組 (Soldier Melds)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">手牌或亮牌中含有「兵兵兵」或「卒卒卒」刻子，每組加 1 台。</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">對子四組 (Four Pairs)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">4 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">於56子或64子型，手牌由4對對子組成（共8張牌且門清）。</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">五兵全會/五卒將星</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">8 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">於32子型中，手牌剛好由五張「兵」或五張「卒」組成。</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">天胡 (Heavenly Win)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">8 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">莊家起手發完牌剛好胡牌。</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">地胡 (Earthly Win)</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">8 台</td>
-                  <td className="px-4 py-3 md:px-6 md:py-4">閒家在莊家丟出第一張牌即宣告胡牌（胡他人打的第一張牌）。</td>
-                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-700">
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">胡牌／聽牌／清一色</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">基礎胡牌台數；胡牌前已宣告聽牌；或整副手牌皆為同一顏色。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">門清／自摸</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4">全程無吃碰槓（暗槓除外）自摸；或自己摸進胡牌張。兩者各自獨立計台。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">槓上開花／海底撈月</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">開槓補牌自摸，或摸進牌牆最後一張自摸。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">斷頭尾</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">整副胡牌手牌中完全沒有「將、帥、兵、卒」。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">碰碰胡／二槓子</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4">手牌面子全部為刻子，或擁有兩組槓子。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">將帥領兵</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4">整副手牌僅由「將／帥」與「兵／卒」兩種棋子組成。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">雙龍抱／一條龍</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">4 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">4 台</td><td className="px-4 py-3 md:px-6 md:py-4">兩組面子為完全相同的順子；或將士象＋車馬包（或帥仕相＋俥傌炮）全齊。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">五兵合縱／五卒連橫</td><td className="px-4 py-3 md:px-6 md:py-4 text-stone-500">－</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4">手牌中擁有 5～7 張同色的兵或卒（一組面子加眼睛湊成）。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">八家將（極限牌型）</td><td className="px-4 py-3 md:px-6 md:py-4 text-stone-500">－</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">8 台</td><td className="px-4 py-3 md:px-6 md:py-4">集齊 8 張同色的兵或卒（僅 64 子雙副棋型可能出現）。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">天胡／地胡</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">8 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">8 台</td><td className="px-4 py-3 md:px-6 md:py-4">起手配牌即完成胡牌，或閒家第一巡摸牌自摸。</td></tr>
               </tbody>
             </table>
           </div>

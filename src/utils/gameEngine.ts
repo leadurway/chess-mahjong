@@ -420,96 +420,239 @@ export function getSelfKongOptions(hand: Tile[], exposedMelds: Meld[]): SelfKong
   });
 }
 
-// Score calculation (台數)
+// Shared shape used by both a winning hand's decomposition (below) and a meld's chow/pong
+// classification — a meld that isn't 3-of-a-kind must be a sequence, since isValidMeld only
+// ever accepts those two shapes.
+interface MeldShape {
+  tiles: Tile[];
+  isChow: boolean;
+}
+
+function extractMeldShapes(tiles: Tile[]): MeldShape[] | null {
+  if (tiles.length === 0) return [];
+  for (let i = 1; i < tiles.length; i++) {
+    for (let j = i + 1; j < tiles.length; j++) {
+      const group = [tiles[0], tiles[i], tiles[j]];
+      if (isValidMeld(group)) {
+        const remaining = tiles.filter((_, idx) => idx !== 0 && idx !== i && idx !== j);
+        const rest = extractMeldShapes(remaining);
+        if (rest !== null) {
+          const isChow = !(group[0].role === group[1].role && group[1].role === group[2].role);
+          return [{ tiles: group, isChow }, ...rest];
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// Decomposes a winning hand into its eye (pair) and every meld — exposed melds are already
+// split out by the game, but a fully concealed hand (no calls at all) still needs solving for
+// which 2 tiles are the eye and how the rest divide into melds. Several fan categories below
+// (將帥聽令's eye, 雙龍抱/一條龍's meld shapes) need this rather than just a flat tile list.
+// Kongs are treated as their 3-tile triple shape — the 4th identical tile doesn't change
+// whether the group reads as a chow or a pong for these checks.
+function decomposeWinningShape(
+  concealedHand: Tile[],
+  exposedMelds: Meld[]
+): { eye: [Tile, Tile]; melds: MeldShape[] } | null {
+  const exposedShapes: MeldShape[] = exposedMelds.map(m => ({
+    tiles: m.type === 'kong' ? m.tiles.slice(0, 3) : m.tiles,
+    isChow: m.type === 'chow',
+  }));
+
+  if (concealedHand.length === 2) {
+    return isPair(concealedHand[0], concealedHand[1])
+      ? { eye: [concealedHand[0], concealedHand[1]], melds: exposedShapes }
+      : null;
+  }
+
+  for (let i = 0; i < concealedHand.length; i++) {
+    for (let j = i + 1; j < concealedHand.length; j++) {
+      if (!isPair(concealedHand[i], concealedHand[j])) continue;
+      const remaining = concealedHand.filter((_, idx) => idx !== i && idx !== j);
+      const concealedMelds = extractMeldShapes(remaining);
+      if (concealedMelds) {
+        return { eye: [concealedHand[i], concealedHand[j]], melds: [...exposedShapes, ...concealedMelds] };
+      }
+    }
+  }
+  return null;
+}
+
+const ALL_ROLE_COLOR_COMBOS: { color: TileColor; role: TileRole }[] = [
+  { color: 'red', role: '帥' }, { color: 'red', role: '仕' }, { color: 'red', role: '相' },
+  { color: 'red', role: '車' }, { color: 'red', role: '馬' }, { color: 'red', role: '炮' }, { color: 'red', role: '兵' },
+  { color: 'black', role: '將' }, { color: 'black', role: '士' }, { color: 'black', role: '象' },
+  { color: 'black', role: '車' }, { color: 'black', role: '馬' }, { color: 'black', role: '包' }, { color: 'black', role: '卒' },
+];
+
+// Tenpai check — is there any single tile that would complete this hand right now? Backs both
+// the player's "宣告聽牌" button (only enabled once actually in tenpai) and the AI's own
+// decision to declare. Probe tiles never need to be real/available in the wall — isWinningHand
+// only checks role/color shape, not tile provenance.
+export function isTenpai(hand: Tile[], melds: Meld[]): boolean {
+  return ALL_ROLE_COLOR_COMBOS.some(({ color, role }) => {
+    const candidate: Tile = { id: `__tenpai_probe_${color}_${role}`, color, role, character: role };
+    return isWinningHand([...hand, candidate], melds);
+  });
+}
+
+// Extra context calculateFans needs beyond the winning hand itself — grouped into one object
+// since a 9th/10th positional boolean would stop being readable at the call site.
+export interface WinContext {
+  isSelfDraw: boolean;
+  isFirstMove: boolean; // winner has made zero discards yet (天胡/地胡 eligibility)
+  isWinnerBanker: boolean;
+  dealerStreak: number; // consecutive rounds the CURRENT round's dealer has held the seat
+  mode: GameMode;
+  isReady: boolean; // winner had declared 聽牌 before winning
+  isKongReplacement: boolean; // winning tile was a kong's replacement draw (槓上開花)
+  isLastWallTile: boolean; // winning tile was the wall's last remaining tile (海底撈月)
+}
+
+// Score calculation (台數) — see docs/Xiangqi_Mahjong_Scoring_Guide (象棋麻將棋仔自摸計分全攻略)
+// for the source ruleset this mirrors. The three modes intentionally score differently: 32-tile
+// mode's tiny 1-meld hands get their own dedicated categories (莊家 flat bonus, 將帥聽令, the
+// full 5-soldier hand shape), while 56/64-tile mode's 2-meld hands get a different set (門清,
+// 斷頭尾, 碰碰胡/二槓子, 將帥領兵, 雙龍抱/一條龍) that would be structurally unreachable with
+// only 1 meld. 64-tile mode alone can reach 5+ soldiers of one color in a single hand (its two
+// full chess sets supply up to 10 of each), so 五兵合縱/五卒連橫/八家將 only fire there.
 export function calculateFans(
   concealedHand: Tile[],
   exposedMelds: Meld[],
-  isSelfDraw: boolean,
-  isFirstMove: boolean,
-  isWinnerBanker: boolean,
-  dealerStreak: number
+  ctx: WinContext
 ): { name: string; value: number }[] {
   const fans: { name: string; value: number }[] = [];
+  const { mode } = ctx;
 
-  // Base Win / 贏牌底
-  fans.push({ name: '胡牌 (Base Win)', value: 1 });
-
-  // Self Draw
-  if (isSelfDraw) {
-    fans.push({ name: '自摸 (Self Draw)', value: 1 });
-  }
-
-  // Dealer streak (連莊): only two seats are ever in play (player vs AI), so a streak belongs
-  // to "the current round's dealer" rather than to whichever side actually wins this hand — the
-  // bonus applies the same whether the dealer wins or is the one who gets won against.
-  if (dealerStreak > 1) {
-    fans.push({ name: `連莊 (Dealer Streak, 連${dealerStreak - 1}莊)`, value: dealerStreak - 1 });
-  }
-
-  // Concealed Hand — a self-declared concealed kong (暗槓) doesn't break 門清.
-  const nonConcealedMelds = exposedMelds.filter(m => !(m.type === 'kong' && m.discardSource === 'self'));
-  if (nonConcealedMelds.length === 0) {
-    fans.push({ name: '門清 (Concealed Hand)', value: 1 });
-  }
-
-  // Extract all tiles in the winning configuration
   const allTiles: Tile[] = [...concealedHand];
   exposedMelds.forEach(m => allTiles.push(...m.tiles));
 
+  // 底台 / 胡牌 — every mode.
+  fans.push({ name: '胡牌 (Base Win)', value: 1 });
+
+  // 莊家 — 32-tile mode only: being banker adds a flat tai every round, win or lose, exactly
+  // like 連莊 below (not conditioned on who actually wins this particular hand).
+  if (mode === 32) {
+    fans.push({ name: '莊家 (Banker)', value: 1 });
+  }
+
+  // 連莊 — this project's own addition (not part of the source ruleset, added per a direct
+  // request since a 2-player-vs-AI match has no other players to track streaks against). Same
+  // "applies regardless of who wins" logic as 莊家 above.
+  if (ctx.dealerStreak > 1) {
+    fans.push({ name: `連莊 (Dealer Streak, 連${ctx.dealerStreak - 1}莊)`, value: ctx.dealerStreak - 1 });
+  }
+
+  // 聽牌 — winner had already declared readiness before winning. All modes.
+  if (ctx.isReady) {
+    fans.push({ name: '聽牌 (Declared Ready)', value: 1 });
+  }
+
+  // 清一色 — entire winning hand is a single color. All modes. (Replaces separately-valued
+  // 全紅/全黑 — the source ruleset grants one flat tai for either color, not two categories.)
   const allRed = allTiles.every(t => t.color === 'red');
   const allBlack = allTiles.every(t => t.color === 'black');
+  if (allRed || allBlack) {
+    fans.push({ name: '清一色 (One Color)', value: 1 });
+  }
 
-  // All Red / All Black
-  if (allRed) {
-    fans.push({ name: '全紅 (All Red)', value: 4 });
-  } else if (allBlack) {
-    fans.push({ name: '全黑 (All Black)', value: 4 });
-  } else {
-    const redCount = allTiles.filter(t => t.color === 'red').length;
-    const blackCount = allTiles.filter(t => t.color === 'black').length;
-    if (redCount >= 2 && blackCount >= 2) {
-      fans.push({ name: '半紅黑 (Half Red Half Black)', value: 1 });
+  // 海底撈月 / 槓上開花 — winning off the wall's last tile, or a kong's replacement draw.
+  // Both share one bonus slot per mode; 32-tile's ruleset only names 海底撈月, but a
+  // kong-replacement win there scores the same way.
+  if (ctx.isSelfDraw && (ctx.isKongReplacement || ctx.isLastWallTile)) {
+    const name = ctx.isKongReplacement ? '槓上開花 (Kong Replacement Draw)' : '海底撈月 (Last Wall Tile)';
+    fans.push({ name, value: mode === 56 ? 2 : 1 });
+  }
+
+  // 自摸 — value scales by mode.
+  if (ctx.isSelfDraw) {
+    fans.push({ name: '自摸 (Self Draw)', value: mode === 56 ? 1 : 2 });
+  }
+
+  // 門清 — fully concealed hand (a self-declared 暗槓 doesn't break it). Not offered in
+  // 32-tile mode, which the source ruleset omits entirely (its 1-meld cap makes "concealed"
+  // too easy to reach to be worth its own tai there).
+  if (mode !== 32) {
+    const nonConcealedMelds = exposedMelds.filter(m => !(m.type === 'kong' && m.discardSource === 'self'));
+    if (nonConcealedMelds.length === 0) {
+      fans.push({ name: '門清 (Concealed Hand)', value: mode === 64 ? 2 : 1 });
     }
   }
 
-  // Special Wins
-  const isFiveRedSoldiers = allTiles.length === 5 && allTiles.every(t => t.color === 'red' && t.role === '兵');
-  const isFiveBlackSoldiers = allTiles.length === 5 && allTiles.every(t => t.color === 'black' && t.role === '卒');
-  if (isFiveRedSoldiers) {
-    fans.push({ name: '五兵全會 (Five Red Soldiers)', value: 8 });
-  } else if (isFiveBlackSoldiers) {
-    fans.push({ name: '五卒將星 (Five Black Soldiers)', value: 8 });
-  } else {
-    // All Triples
-    if (checkAllTriples(concealedHand, exposedMelds)) {
-      fans.push({ name: '碰碰胡 (All Triples)', value: 2 });
-    }
-
-    // Four Pairs
-    const is4Pairs = allTiles.length === 8 && exposedMelds.length === 0 && canPartitionIntoPairs(concealedHand);
-    if (is4Pairs) {
-      fans.push({ name: '對子四組 (Four Pairs)', value: 4 });
+  // 斷頭尾 — hand contains none of 將/帥/兵/卒. 56/64-tile only.
+  if (mode !== 32) {
+    if (allTiles.every(t => !['將', '帥', '兵', '卒'].includes(t.role))) {
+      fans.push({ name: '斷頭尾 (No Generals or Soldiers)', value: 1 });
     }
   }
 
-  // Double Check if we have Soldier Melds (兵/卒 刻子) -> 兵兵兵 or 卒卒卒
+  // 碰碰胡 / 二槓子 — every group is a triple, or two of the melds are kongs. 56/64-tile only.
+  if (mode !== 32) {
+    const kongCount = exposedMelds.filter(m => m.type === 'kong').length;
+    if (checkAllTriples(concealedHand, exposedMelds) || kongCount >= 2) {
+      fans.push({ name: '碰碰胡/二槓子 (All Triples or Two Kongs)', value: 2 });
+    }
+  }
+
+  const shape = decomposeWinningShape(concealedHand, exposedMelds);
+
+  // 將帥聽令 — the eye is 將 or 帥 (isPair already allows 將/帥 to pair cross-color as the
+  // "royal couple"). 32-tile only.
+  if (mode === 32 && shape && (shape.eye[0].role === '將' || shape.eye[0].role === '帥')) {
+    fans.push({ name: '將帥聽令 (King/General Eye)', value: 2 });
+  }
+
+  // 將帥領兵 — the entire hand is only 將/帥 and 兵/卒 (no other piece types at all). 56/64-tile only.
+  if (mode !== 32 && allTiles.every(t => ['將', '帥', '兵', '卒'].includes(t.role))) {
+    fans.push({ name: '將帥領兵 (Generals Leading Soldiers)', value: 2 });
+  }
+
+  // 雙龍抱 / 一條龍 — two identical sequences, or the complete two-sequence run of one color
+  // (帥仕相+俥傌炮 / 將士象+車馬包). Needs both melds to be chows of the same color. 56/64-tile
+  // only (32-tile's 1-meld cap can never produce two sequences to compare).
+  if (mode !== 32 && shape) {
+    const chows = shape.melds.filter(m => m.isChow);
+    if (chows.length === 2 && chows[0].tiles[0].color === chows[1].tiles[0].color) {
+      const rolesOf = (m: Tile[]) => [...m.map(t => t.role)].sort().join('');
+      if (rolesOf(chows[0].tiles) === rolesOf(chows[1].tiles)) {
+        fans.push({ name: '雙龍抱 (Twin Sequences)', value: 4 });
+      } else {
+        const color = chows[0].tiles[0].color;
+        const combinedRoles = new Set([...chows[0].tiles, ...chows[1].tiles].map(t => t.role));
+        const fullRun: TileRole[] = color === 'red' ? ['帥', '仕', '相', '車', '馬', '炮'] : ['將', '士', '象', '車', '馬', '包'];
+        if (fullRun.every(r => combinedRoles.has(r))) {
+          fans.push({ name: '一條龍 (Full Sequence Run)', value: 4 });
+        }
+      }
+    }
+  }
+
+  // 五兵合縱 / 五卒連橫 / 八家將 — same-color-soldier counting, tiered by how many appear in
+  // the winning hand. 32-tile's version is a whole-hand special shape (5 tiles, all one
+  // soldier) already validated by isWinningHand elsewhere. 56-tile mode can never reach 5 (only
+  // 4 of any single tile exist there), so this naturally never fires for it. 64-tile mode's
+  // larger soldier supply (two full sets, 10 of each color) lets 5+ arise as a meld+pair
+  // combination within an otherwise normal 8-tile hand, up to all 8 tiles being identical.
   const redSoldiers = allTiles.filter(t => t.color === 'red' && t.role === '兵').length;
   const blackSoldiers = allTiles.filter(t => t.color === 'black' && t.role === '卒').length;
-  if (redSoldiers >= 3 && redSoldiers < 5) {
-    fans.push({ name: '兵卒刻組 (Soldier Melds)', value: 1 });
-  }
-  if (blackSoldiers >= 3 && blackSoldiers < 5) {
-    fans.push({ name: '兵卒刻組 (Soldier Melds)', value: 1 });
+  const maxSoldierCount = Math.max(redSoldiers, blackSoldiers);
+  const soldierIsRed = redSoldiers >= blackSoldiers;
+  if (mode === 32 && allTiles.length === 5 && maxSoldierCount === 5) {
+    fans.push({ name: soldierIsRed ? '五兵合縱 (Five Red Soldiers)' : '五卒連橫 (Five Black Soldiers)', value: 5 });
+  } else if (mode === 64 && maxSoldierCount === 8) {
+    fans.push({ name: '八家將 (Eight Soldiers)', value: 8 });
+  } else if (mode === 64 && maxSoldierCount >= 5) {
+    fans.push({ name: soldierIsRed ? '五兵合縱 (Five Red Soldiers Meld)' : '五卒連橫 (Five Black Soldiers Meld)', value: 2 });
   }
 
-  // Heavenly/Earthly Win: both require a self-drawn win before any discard has happened.
-  // 天胡 — the banker's own dealt hand is already complete; 地胡 — the idle side wins on their first draw.
-  if (isFirstMove && isSelfDraw) {
-    if (isWinnerBanker) {
-      fans.push({ name: '天胡 (Heavenly Win)', value: 8 });
-    } else {
-      fans.push({ name: '地胡 (Earthly Win)', value: 8 });
-    }
+  // 天胡 / 地胡 — both require a self-drawn win before any discard has happened. 天胡 is the
+  // banker's own dealt hand already being complete; 地胡 is the idle side winning on their
+  // first draw.
+  if (ctx.isFirstMove && ctx.isSelfDraw) {
+    const value = mode === 32 ? 6 : 8;
+    fans.push({ name: ctx.isWinnerBanker ? '天胡 (Heavenly Win)' : '地胡 (Earthly Win)', value });
   }
 
   return fans;

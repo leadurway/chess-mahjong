@@ -15,6 +15,7 @@ import {
   shouldTakeMeld,
   computeHandProgressScore,
   calculateFans,
+  isTenpai,
   evaluateHand,
   sortHandForDisplay,
   getMeldDisplayTiles
@@ -228,9 +229,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const completeHand = [...playerHand, discardedTile];
     const canWin = isWinningHand(completeHand, playerMelds);
     // Pong/eat/kong-from-discard would all form a brand-new meld — only offer them while
-    // still under the mode's meld cap, and only offer kong if a replacement tile actually
-    // exists to draw (see maxMeldsForMode above for why both guards matter).
-    const canFormNewMeld = playerMelds.length < maxMeldsForMode(currentGameState.mode);
+    // still under the mode's meld cap, only offer kong if a replacement tile actually exists
+    // to draw (see maxMeldsForMode above for why both guards matter), and never once the
+    // player has declared 聽牌 (聽牌 commits to the current hand shape — see the field's doc).
+    const canFormNewMeld = !currentGameState.player.hasDeclaredReady &&
+      playerMelds.length < maxMeldsForMode(currentGameState.mode);
     const canPong = canFormNewMeld && getPongCombination(playerHand, discardedTile) !== null;
     const eatCombos = canFormNewMeld ? getEatCombinations(playerHand, discardedTile) : [];
     const canEat = eatCombos.length > 0;
@@ -258,6 +261,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const expectedIdleSize = targetTotal - 1 - aiMelds.length * 3;
     const expectedStartSize = targetTotal - aiMelds.length * 3;
 
+    // AI declares 聽牌 the moment its post-discard hand is tenpai (mirrors a reasonable
+    // player's incentive to grab the bonus tai as soon as it's available) and never un-declares.
+    const aiReadyAfterDiscard = (handAfterDiscard: Tile[], melds: Meld[]) =>
+      gameState.ai.hasDeclaredReady || isTenpai(handAfterDiscard, melds);
+
     // AI just claimed a pong/chow off the player's discard — it already holds
     // the extra tile, so it must discard directly without drawing first.
     if (gameState.aiDiscardOnly) {
@@ -268,7 +276,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const newGameState: GameState = {
         ...gameState,
         aiDiscardOnly: false,
-        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded] },
+        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded], hasDeclaredReady: aiReadyAfterDiscard(remainingHand, aiMelds) },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: discarded,
@@ -305,8 +313,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       // one to give — otherwise chooseAIDiscard below would end up discarding from a hand
       // that's permanently 1 tile short, desyncing expectedIdleSize/expectedStartSize for the
       // rest of the round and stalling handleAILoops entirely (see maxMeldsForMode).
-      const aiSelfKongOptions = getSelfKongOptions(aiHand, aiMelds)
-        .filter(opt => opt.isUpgrade || aiMelds.length < maxMeldsForMode(gameState.mode));
+      const aiSelfKongOptions = gameState.ai.hasDeclaredReady
+        ? []
+        : getSelfKongOptions(aiHand, aiMelds)
+            .filter(opt => opt.isUpgrade || aiMelds.length < maxMeldsForMode(gameState.mode));
       if (aiSelfKongOptions.length > 0 && updatedWall.length > 0 && (gameState.difficulty === 'hard' || Math.random() > 0.5)) {
         const option = aiSelfKongOptions[0];
         const replacementTile = updatedWall.pop();
@@ -318,9 +328,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         const kongLabel = option.isUpgrade ? '補槓' : '暗槓';
         playSfx('meld');
 
-        // The replacement tile can complete the hand outright (kong-then-self-draw win).
+        // The replacement tile can complete the hand outright (kong-then-self-draw win, 槓上開花).
         if (isWinningHand(finalAiHand, aiMeldsAfterKong)) {
-          triggerWin('ai', replacementTile ?? null, true, updatedWall, finalAiHand);
+          triggerWin('ai', replacementTile ?? null, true, updatedWall, finalAiHand, true);
           return;
         }
 
@@ -331,7 +341,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         const kongGameState: GameState = {
           ...gameState,
           wall: updatedWall,
-          ai: { ...gameState.ai, hand: remainingHand, melds: aiMeldsAfterKong, discards: [...gameState.ai.discards, discarded] },
+          ai: { ...gameState.ai, hand: remainingHand, melds: aiMeldsAfterKong, discards: [...gameState.ai.discards, discarded], hasDeclaredReady: aiReadyAfterDiscard(remainingHand, aiMeldsAfterKong) },
           turn: 'player',
           phase: 'waitingDiscard',
           lastDiscard: discarded,
@@ -356,7 +366,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const newGameState: GameState = {
         ...gameState,
         wall: updatedWall,
-        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded] },
+        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded], hasDeclaredReady: aiReadyAfterDiscard(remainingHand, aiMelds) },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: discarded,
@@ -384,7 +394,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       const newGameState: GameState = {
         ...gameState,
-        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded] },
+        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded], hasDeclaredReady: aiReadyAfterDiscard(remainingHand, aiMelds) },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: discarded,
@@ -415,7 +425,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     setGameState(prev => ({
       ...prev,
       wall: updatedWall,
-      player: { ...prev.player, hand: updatedHand, pendingDrawnTileId: drawnTile.id },
+      player: { ...prev.player, hand: updatedHand, pendingDrawnTileId: drawnTile.id, pendingDrawWasKong: false },
       phase: 'waitingDiscard',
       logs: [...prev.logs, `你摸了一張：${drawnTile.color === 'red' ? '紅' : '黑'}${drawnTile.character}`],
     }));
@@ -431,7 +441,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
     const nextGameState: GameState = {
       ...gameState,
-      player: { ...gameState.player, hand: updatedHand, discards: updatedDiscards, pendingDrawnTileId: null },
+      player: { ...gameState.player, hand: updatedHand, discards: updatedDiscards, pendingDrawnTileId: null, pendingDrawWasKong: false },
       turn: 'ai',
       phase: 'aiThinking',
       lastDiscard: tileToDiscard,
@@ -453,8 +463,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
     const aiMeldsCountBefore = nextGameState.ai.melds.length;
     // Pong/eat here would each form a brand-new meld for the AI — only consider them while
-    // still under the mode's meld cap (see maxMeldsForMode for why exceeding it is dangerous).
-    const aiCanFormNewMeld = aiMeldsCountBefore < maxMeldsForMode(gameState.mode);
+    // still under the mode's meld cap (see maxMeldsForMode for why exceeding it is dangerous),
+    // and never once the AI has declared 聽牌 (commits to its current hand shape, same as the
+    // player's canFormNewMeld guard in checkForPlayerInterrupts).
+    const aiCanFormNewMeld = !gameState.ai.hasDeclaredReady &&
+      aiMeldsCountBefore < maxMeldsForMode(gameState.mode);
     const aiPongCombo = aiCanFormNewMeld ? getPongCombination(nextGameState.ai.hand, tileToDiscard) : null;
     const aiEatCombos = aiCanFormNewMeld ? getEatCombinations(nextGameState.ai.hand, tileToDiscard) : [];
     let aiMelded = false;
@@ -563,7 +576,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const newMeld: Meld = { type: 'pong', tiles: [...combo, d], discardSource: 'ai' };
       return {
         ...prev,
-        player: { ...prev.player, hand: updatedHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: null },
+        player: { ...prev.player, hand: updatedHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: null, pendingDrawWasKong: false },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: null,
@@ -596,7 +609,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const charString = newMeld.tiles.map(t => t.character).join('');
       return {
         ...prev,
-        player: { ...prev.player, hand: updatedHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: null },
+        player: { ...prev.player, hand: updatedHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: null, pendingDrawWasKong: false },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: null,
@@ -626,7 +639,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       return {
         ...prev,
         wall: updatedWall,
-        player: { ...prev.player, hand: finalHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: replacementTile?.id ?? null },
+        player: { ...prev.player, hand: finalHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: replacementTile?.id ?? null, pendingDrawWasKong: true },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: null,
@@ -661,10 +674,23 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       return {
         ...prev,
         wall: updatedWall,
-        player: { ...prev.player, hand: finalHand, melds: updatedMelds, pendingDrawnTileId: replacementTile?.id ?? null },
+        player: { ...prev.player, hand: finalHand, melds: updatedMelds, pendingDrawnTileId: replacementTile?.id ?? null, pendingDrawWasKong: true },
         logs,
       };
     });
+  };
+
+  // 聽牌宣告：commits the player to their current hand shape for the rest of the round — no more
+  // 吃/碰/槓 (see the canFormNewMeld/selfKongOptions guards above) — in exchange for a tai bonus
+  // at showdown. It doesn't additionally restrict which concealed tile gets discarded each turn
+  // (see canClick's doc for why locking that to "whatever was just drawn" would deadlock).
+  const handlePlayerDeclareReady = () => {
+    if (!canDeclareReady) return;
+    setGameState(prev => ({
+      ...prev,
+      player: { ...prev.player, hasDeclaredReady: true },
+      logs: [...prev.logs, '📣 你宣告了「聽牌！」'],
+    }));
   };
 
   const handlePlayerDeclareWin = () => {
@@ -678,7 +704,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     if (playerHand.length === targetWinSize) {
       if (isWinningHand(playerHand, playerMelds)) {
         const winningTile = gameState.lastDiscardSender === 'player' ? null : playerHand[playerHand.length - 1];
-        triggerWin('player', winningTile, true, gameState.wall, playerHand);
+        triggerWin('player', winningTile, true, gameState.wall, playerHand, gameState.player.pendingDrawWasKong ?? false);
       } else {
         addLog('⚠️ 提示：你目前的手牌尚未形成胡牌聽牌組合喔！');
       }
@@ -697,7 +723,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     winningTile: Tile | null,
     isSelfDraw: boolean,
     updatedWall: Tile[],
-    finalConcealedHand: Tile[]
+    finalConcealedHand: Tile[],
+    isKongReplacement: boolean = false
   ) => {
     const isPlayer = winner === 'player';
     playSfx(isPlayer ? 'win' : 'lose');
@@ -708,7 +735,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     // made their opening discard, so that stricter check could never be true and 地胡 could
     // never actually fire. Each side's own discard count is what matters.
     const isFirstMove = winnerState.discards.length === 0;
-    const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, isSelfDraw, isFirstMove, winnerState.isBanker, gameState.dealerStreak);
+    const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, {
+      isSelfDraw,
+      isFirstMove,
+      isWinnerBanker: winnerState.isBanker,
+      dealerStreak: gameState.dealerStreak,
+      mode: gameState.mode,
+      isReady: winnerState.hasDeclaredReady ?? false,
+      isKongReplacement,
+      isLastWallTile: isSelfDraw && updatedWall.length === 0,
+    });
     const totalFans = fansCalculated.reduce((sum, f) => sum + f.value, 0);
     const payout = calculatePayout(totalFans);
     const winnerMelds = winnerState.melds;
@@ -780,14 +816,26 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const isSelfDrawWinAvailable = gameState.player.hand.length === expectedWinSize &&
     isWinningHand(gameState.player.hand, gameState.player.melds);
 
-  const selfKongOptions = gameState.turn === 'player' && gameState.phase === 'waitingDiscard' && gameState.wall.length > 0
+  // 聽牌 (declared ready) commits to the current hand shape, so no more self-kongs either —
+  // see hasDeclaredReady's doc in types.ts.
+  const selfKongOptions = gameState.turn === 'player' && gameState.phase === 'waitingDiscard' &&
+    gameState.wall.length > 0 && !gameState.player.hasDeclaredReady
     ? getSelfKongOptions(gameState.player.hand, gameState.player.melds)
         .filter(opt => opt.isUpgrade || gameState.player.melds.length < maxMeldsForMode(gameState.mode))
     : [];
 
+  // Once ready, a tenpai check against the hand-minus-each-candidate-discard is no longer
+  // needed for THIS button (declaring again would be a no-op) — but it's still how we decide
+  // whether to show the button in the first place. Self-draw win stays available regardless of
+  // isSelfDrawWinAvailable's tenpai status; declaring ready shouldn't be offered on the round's
+  // very first hand's opening deal beyond what isTenpai naturally supports either.
+  const canDeclareReady = gameState.turn === 'player' && gameState.phase === 'waitingDiscard' &&
+    !gameState.player.hasDeclaredReady && !isSelfDrawWinAvailable &&
+    gameState.player.hand.some(t => isTenpai(gameState.player.hand.filter(x => x.id !== t.id), gameState.player.melds));
+
   const canDraw = gameState.turn === 'player' && gameState.phase === 'drawing';
   const canDiscard = gameState.turn === 'player' && gameState.phase === 'waitingDiscard';
-  const showOwnTurnOffer = !ownTurnOfferDismissed && (selfKongOptions.length > 0 || isSelfDrawWinAvailable);
+  const showOwnTurnOffer = !ownTurnOfferDismissed && (selfKongOptions.length > 0 || isSelfDrawWinAvailable || canDeclareReady);
   const showActionPopup = gameState.phase === 'showMeldSelect' || showOwnTurnOffer;
 
   // Hand display order: sorted by role (將士象車馬包／帥仕相車馬炮／兵卒), except the most
@@ -941,6 +989,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       )}
       {playerHandForDisplay.map((tile) => {
         const isSelected = selectedTileId === tile.id;
+        // "不再變更手牌" (聽牌 locks the hand) is enforced by disallowing further melds —
+        // see the hasDeclaredReady guards on canFormNewMeld/selfKongOptions above — rather than
+        // by restricting which concealed tile can be discarded here. Locking discard choice to
+        // "whatever was just drawn" would deadlock on the very first turn of a round: the
+        // dealer's opening hand already holds its full target-win-size tile count without ever
+        // going through handlePlayerDraw, so pendingDrawnTileId is still unset at that point —
+        // no tile would ever match it, and every hand tile would become permanently unclickable.
         const canClick = gameState.phase === 'waitingDiscard' && gameState.turn === 'player';
         return (
           <ChessTile
@@ -1013,6 +1068,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             className={`${bigBtnClass} rounded-2xl bg-red-600 text-white font-black font-serif shadow-[0_0_16px_4px_rgba(220,38,38,0.65)] ring-2 ring-red-300 active:scale-95 transition`}
           >
             🔥 胡牌！
+          </button>
+        )}
+        {canDeclareReady && (
+          <button
+            onClick={handlePlayerDeclareReady}
+            className={`${bigBtnClass} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
+          >
+            📣 宣告聽牌
           </button>
         )}
         {showActionPopup && (
