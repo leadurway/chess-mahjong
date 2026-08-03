@@ -828,7 +828,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const avatarTextClass = isLargeScreen ? 'text-xl' : 'text-xs';
   const nameTextClass = isLargeScreen ? 'text-2xl' : 'text-sm';
   const scoreTextClass = isLargeScreen ? 'text-3xl' : 'text-base';
-  const bankerTextClass = isLargeScreen ? 'text-xl' : 'text-xs';
+  const bankerTextClass = isLargeScreen ? 'text-2xl' : 'text-sm';
   const hintTextClass = isLargeScreen ? 'text-2xl' : 'text-base';
   const logoSizeClass = isLargeScreen ? 'w-16 h-16' : 'w-9 h-9';
 
@@ -891,9 +891,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       <div className={`${avatarSizeClass} rounded-full bg-red-600 border border-white/50 flex items-center justify-center ${avatarTextClass} font-bold shrink-0`}>
         AI
       </div>
-      <span className={`${nameTextClass} font-bold font-serif leading-none whitespace-nowrap`}>
-        電腦 <span className="text-amber-300 capitalize">{gameState.difficulty}</span>
-      </span>
+      <div className={`${nameTextClass} font-bold font-serif leading-tight flex flex-col`}>
+        <span>電腦</span>
+        <span className="text-amber-300 capitalize">{gameState.difficulty}</span>
+      </div>
     </div>
   );
 
@@ -901,7 +902,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     <div className="flex items-center gap-3 shrink-0">
       {gameState.ai.isBanker && (
         <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
-          👑坐莊{gameState.dealerStreak > 1 ? `×${gameState.dealerStreak}` : ''}
+          👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '坐莊'}
         </span>
       )}
       <span className={`${scoreTextClass} font-black font-mono whitespace-nowrap ${gameState.ai.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -934,7 +935,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     <div className="flex items-center gap-3 shrink-0">
       {gameState.player.isBanker && (
         <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
-          👑坐莊{gameState.dealerStreak > 1 ? `×${gameState.dealerStreak}` : ''}
+          👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '坐莊'}
         </span>
       )}
       <span className={`${scoreTextClass} font-black font-mono whitespace-nowrap ${gameState.player.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
