@@ -26,7 +26,6 @@ export interface PlayerState {
   discards: Tile[]; // Discarded tiles
   score: number;
   isBanker: boolean;
-  hasDeclaredReady?: boolean; // 聽牌
   pendingDrawnTileId?: string | null; // most recently drawn tile, pinned at the end of the hand display until discarded
   pendingDrawWasKong?: boolean; // the pending drawn tile was a kong's replacement draw (槓上開花 eligibility)
 }

@@ -180,7 +180,6 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
               <tbody className="divide-y divide-stone-700">
                 <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">胡牌</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">成功胡牌的基本台數。</td></tr>
                 <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">莊家</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">本局身為莊家，不論胡牌或放槍給閒家都加計。</td></tr>
-                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">聽牌</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">胡牌前已宣告「聽牌」（宣告後不能再吃、碰、槓，且只能打出剛摸到的牌）。</td></tr>
                 <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">清一色</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">胡牌手牌全為紅棋或全為黑棋。</td></tr>
                 <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">海底撈月</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">摸進牌牆最後一張牌，或開槓補牌後自摸胡牌。</td></tr>
                 <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">自摸</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4">自己摸進最後一張胡牌棋子。</td></tr>
@@ -208,7 +207,7 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-700">
-                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">胡牌／聽牌／清一色</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">基礎胡牌台數；胡牌前已宣告聽牌；或整副手牌皆為同一顏色。</td></tr>
+                <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">胡牌／清一色</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">基礎胡牌台數；或整副手牌皆為同一顏色。</td></tr>
                 <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">門清／自摸</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4">全程無吃碰槓（暗槓除外）自摸；或自己摸進胡牌張。兩者各自獨立計台。</td></tr>
                 <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">槓上開花／海底撈月</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">2 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">開槓補牌自摸，或摸進牌牆最後一張自摸。</td></tr>
                 <tr><td className="px-4 py-3 md:px-6 md:py-4 font-semibold text-stone-200">斷頭尾</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4 text-amber-500">1 台</td><td className="px-4 py-3 md:px-6 md:py-4">整副胡牌手牌中完全沒有「將、帥、兵、卒」。</td></tr>

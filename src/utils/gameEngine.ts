@@ -480,33 +480,14 @@ function decomposeWinningShape(
   return null;
 }
 
-const ALL_ROLE_COLOR_COMBOS: { color: TileColor; role: TileRole }[] = [
-  { color: 'red', role: '帥' }, { color: 'red', role: '仕' }, { color: 'red', role: '相' },
-  { color: 'red', role: '車' }, { color: 'red', role: '馬' }, { color: 'red', role: '炮' }, { color: 'red', role: '兵' },
-  { color: 'black', role: '將' }, { color: 'black', role: '士' }, { color: 'black', role: '象' },
-  { color: 'black', role: '車' }, { color: 'black', role: '馬' }, { color: 'black', role: '包' }, { color: 'black', role: '卒' },
-];
-
-// Tenpai check — is there any single tile that would complete this hand right now? Backs both
-// the player's "宣告聽牌" button (only enabled once actually in tenpai) and the AI's own
-// decision to declare. Probe tiles never need to be real/available in the wall — isWinningHand
-// only checks role/color shape, not tile provenance.
-export function isTenpai(hand: Tile[], melds: Meld[]): boolean {
-  return ALL_ROLE_COLOR_COMBOS.some(({ color, role }) => {
-    const candidate: Tile = { id: `__tenpai_probe_${color}_${role}`, color, role, character: role };
-    return isWinningHand([...hand, candidate], melds);
-  });
-}
-
 // Extra context calculateFans needs beyond the winning hand itself — grouped into one object
-// since a 9th/10th positional boolean would stop being readable at the call site.
+// since a 9th positional boolean would stop being readable at the call site.
 export interface WinContext {
   isSelfDraw: boolean;
   isFirstMove: boolean; // winner has made zero discards yet (天胡/地胡 eligibility)
   isWinnerBanker: boolean;
   dealerStreak: number; // consecutive rounds the CURRENT round's dealer has held the seat
   mode: GameMode;
-  isReady: boolean; // winner had declared 聽牌 before winning
   isKongReplacement: boolean; // winning tile was a kong's replacement draw (槓上開花)
   isLastWallTile: boolean; // winning tile was the wall's last remaining tile (海底撈月)
 }
@@ -543,11 +524,6 @@ export function calculateFans(
   // "applies regardless of who wins" logic as 莊家 above.
   if (ctx.dealerStreak > 1) {
     fans.push({ name: `連莊 (Dealer Streak, 連${ctx.dealerStreak - 1}莊)`, value: ctx.dealerStreak - 1 });
-  }
-
-  // 聽牌 — winner had already declared readiness before winning. All modes.
-  if (ctx.isReady) {
-    fans.push({ name: '聽牌 (Declared Ready)', value: 1 });
   }
 
   // 清一色 — entire winning hand is a single color. All modes. (Replaces separately-valued
