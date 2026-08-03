@@ -1090,14 +1090,20 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── AI SECTION: portrait = info row + hand row stacked; landscape = merged single row ── */}
       {isLandscape ? (
         <div
-          className={`shrink-0 w-full ${isPhoneLandscape ? 'py-1.5' : 'px-3 py-1.5'} bg-black/20 border-b border-white/5 flex items-center gap-2`}
+          className={`shrink-0 w-full ${isPhoneLandscape ? 'py-1.5 relative justify-between' : 'px-3 py-1.5 gap-2'} bg-black/20 border-b border-white/5 flex items-center`}
           style={isPhoneLandscape ? {
             paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
             paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
           } : undefined}
         >
           {aiAvatarName}
-          <div className="flex-1 min-w-0 flex justify-center overflow-x-auto">{aiHandMeldFrame}</div>
+          {/* iPhone landscape: pinned to the row's true horizontal center via absolute
+              positioning, so it never shifts when aiAvatarName/aiBankerScore's own width
+              changes (e.g. AI difficulty text, or 莊家/莊連N banker label length) — unlike
+              flex-1 centering, which centers within whatever space is left AFTER those two
+              variable-width siblings, not the row itself. iPad/desktop landscape keeps the
+              original flex-1 behavior. */}
+          <div className={isPhoneLandscape ? 'absolute left-1/2 -translate-x-1/2 overflow-x-auto' : 'flex-1 min-w-0 flex justify-center overflow-x-auto'}>{aiHandMeldFrame}</div>
           {aiBankerScore}
         </div>
       ) : (
@@ -1202,14 +1208,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       <div className="relative shrink-0">
         {isLandscape ? (
           <div
-            className={`w-full ${isPhoneLandscape ? 'py-1.5' : 'px-3 py-1.5'} bg-black/20 border-b border-white/5 flex items-center gap-2`}
+            className={`w-full ${isPhoneLandscape ? 'py-1.5 relative justify-between' : 'px-3 py-1.5 gap-2'} bg-black/20 border-b border-white/5 flex items-center`}
             style={isPhoneLandscape ? {
               paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
               paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
             } : undefined}
           >
             {playerAvatarName}
-            <div className="flex-1 min-w-0 flex justify-center overflow-x-auto">{playerHandMeldFrame}</div>
+            {/* See the matching AI row's comment above — absolute-centers on iPhone landscape
+                so info/banker-label width changes never shift the hand position. */}
+            <div className={isPhoneLandscape ? 'absolute left-1/2 -translate-x-1/2 overflow-x-auto' : 'flex-1 min-w-0 flex justify-center overflow-x-auto'}>{playerHandMeldFrame}</div>
             {playerBankerScore}
           </div>
         ) : (
