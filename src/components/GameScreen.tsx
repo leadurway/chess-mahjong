@@ -64,6 +64,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const isLargeScreen = useIsLargeScreen();
   const logEndRef = useRef<HTMLDivElement>(null);
   const confirmExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards every player-triggered turn action (draw/discard/pong/eat/kong/self-kong/declare-win)
+  // against re-entrant double-invocation — e.g. a fast double-tap, common on the iPhone/iPad
+  // this game targets. Each handler checks-and-sets this at its very start and bails out if
+  // already true; the effect below clears it once `gameState` actually reflects the first
+  // invocation's result, so a second call arriving before React has re-rendered is a no-op
+  // instead of re-running the same (now-stale) computation twice — which is exactly how a
+  // discarded/claimed tile could previously end up duplicated on the table.
+  const actionInFlightRef = useRef(false);
 
   const handleExitClick = () => {
     if (confirmExit) {
@@ -127,6 +135,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         : [`遊戲開始！對手起莊領 ${baseDealerCount} 張牌，對手思考中...`],
     };
   });
+
+  useEffect(() => {
+    actionInFlightRef.current = false;
+  }, [gameState]);
 
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [pendingEatCombos, setPendingEatCombos] = useState<Tile[][] | null>(null);
@@ -404,25 +416,34 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   };
 
   const handlePlayerDraw = () => {
+    if (actionInFlightRef.current) return;
     if (gameState.phase !== 'drawing' || gameState.turn !== 'player') return;
     if (gameState.wall.length === 0) { handleDrawGame(); return; }
-
-    const updatedWall = [...gameState.wall];
-    const drawnTile = updatedWall.shift()!;
-    const updatedHand = [...gameState.player.hand, drawnTile];
+    actionInFlightRef.current = true;
     playSfx('draw');
 
-    setGameState(prev => ({
-      ...prev,
-      wall: updatedWall,
-      player: { ...prev.player, hand: updatedHand, pendingDrawnTileId: drawnTile.id, pendingDrawWasKong: false },
-      phase: 'waitingDiscard',
-      logs: [...prev.logs, `你摸了一張：${drawnTile.color === 'red' ? '紅' : '黑'}${drawnTile.character}`],
-    }));
+    // Everything is computed fresh from `prev` (rather than the outer `gameState` closure
+    // above, which is only used for the fast-path guard) so a second invocation racing in
+    // before the first commit lands — e.g. a fast double-tap, common on the iPhone/iPad this
+    // game targets — is a no-op instead of drawing (and silently losing) a second tile.
+    setGameState(prev => {
+      if (prev.phase !== 'drawing' || prev.turn !== 'player' || prev.wall.length === 0) return prev;
+      const updatedWall = [...prev.wall];
+      const drawnTile = updatedWall.shift()!;
+      return {
+        ...prev,
+        wall: updatedWall,
+        player: { ...prev.player, hand: [...prev.player.hand, drawnTile], pendingDrawnTileId: drawnTile.id, pendingDrawWasKong: false },
+        phase: 'waitingDiscard',
+        logs: [...prev.logs, `你摸了一張：${drawnTile.color === 'red' ? '紅' : '黑'}${drawnTile.character}`],
+      };
+    });
   };
 
   const handlePlayerDiscard = (tileToDiscard: Tile) => {
+    if (actionInFlightRef.current) return;
     if (gameState.phase !== 'waitingDiscard' || gameState.turn !== 'player') return;
+    actionInFlightRef.current = true;
 
     const updatedHand = gameState.player.hand.filter(t => t.id !== tileToDiscard.id);
     const updatedDiscards = [...gameState.player.discards, tileToDiscard];
@@ -500,6 +521,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const newMeld: Meld = { type: 'pong', tiles: [...aiPongCombo!, tileToDiscard], discardSource: 'player' };
       nextGameState.ai.hand = aiUpdatedHand;
       nextGameState.ai.melds = [...nextGameState.ai.melds, newMeld];
+      // The claimed tile now lives in the AI's meld — it must no longer also sit in the
+      // player's discard pile, or the same physical tile renders twice on the table.
+      nextGameState.player.discards = nextGameState.player.discards.filter(t => t.id !== tileToDiscard.id);
       nextGameState.turn = 'ai';
       nextGameState.phase = 'aiThinking';
       nextGameState.aiDiscardOnly = true;
@@ -512,6 +536,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const newMeld: Meld = { type: 'chow', tiles: [...bestEatCombo, tileToDiscard], discardSource: 'player' };
       nextGameState.ai.hand = aiUpdatedHand;
       nextGameState.ai.melds = [...nextGameState.ai.melds, newMeld];
+      // See the matching note in the wantsPong branch above.
+      nextGameState.player.discards = nextGameState.player.discards.filter(t => t.id !== tileToDiscard.id);
       nextGameState.turn = 'ai';
       nextGameState.phase = 'aiThinking';
       nextGameState.aiDiscardOnly = true;
@@ -551,19 +577,35 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   };
 
   const handlePlayerPong = () => {
+    if (actionInFlightRef.current) return;
     if (gameState.phase !== 'showMeldSelect' || !gameState.lastDiscard) return;
     if (gameState.player.melds.length >= maxMeldsForMode(gameState.mode)) return;
     const d = gameState.lastDiscard;
     const combo = getPongCombination(gameState.player.hand, d);
     if (!combo) return;
+    actionInFlightRef.current = true;
     playSfx('meld');
 
     setGameState(prev => {
+      // Authoritative re-check against `prev`, not the outer `gameState` closure captured
+      // when this handler started — under a fast enough repeat invocation (e.g. two nearly
+      // simultaneous taps whose event dispatches interleave at the browser level), the SECOND
+      // invocation's own closure can still read the pre-click snapshot even though React has,
+      // by the time THIS updater actually runs, already queued the first invocation's commit.
+      // Checking `prev` — which React guarantees reflects every update queued ahead of this one
+      // — is what actually makes a repeat call a no-op rather than a duplicate meld, regardless
+      // of what the surrounding closure believed.
+      if (prev.phase !== 'showMeldSelect' || !prev.lastDiscard || prev.lastDiscard.id !== d.id) return prev;
+      if (prev.player.melds.length >= maxMeldsForMode(prev.mode)) return prev;
+      if (!combo.every(c => prev.player.hand.some(t => t.id === c.id))) return prev;
       const updatedHand = prev.player.hand.filter(t => !combo.some(c => c.id === t.id));
       const newMeld: Meld = { type: 'pong', tiles: [...combo, d], discardSource: 'ai' };
       return {
         ...prev,
         player: { ...prev.player, hand: updatedHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: null, pendingDrawWasKong: false },
+        // The claimed tile now lives in the player's meld — remove it from the AI's discard
+        // pile, or the same physical tile would render twice on the table.
+        ai: { ...prev.ai, discards: prev.ai.discards.filter(t => t.id !== d.id) },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: null,
@@ -583,20 +625,28 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   };
 
   const executeEat = (selectedCombo: Tile[]) => {
+    if (actionInFlightRef.current) return;
     const d = gameState.lastDiscard;
     if (!d) return;
     if (gameState.player.melds.length >= maxMeldsForMode(gameState.mode)) return;
+    actionInFlightRef.current = true;
     playSfx('meld');
     setShowEatSelections(false);
     setPendingEatCombos(null);
 
     setGameState(prev => {
+      // Authoritative re-check against `prev` — see the matching note in handlePlayerPong.
+      if (prev.phase !== 'showMeldSelect' || !prev.lastDiscard || prev.lastDiscard.id !== d.id) return prev;
+      if (prev.player.melds.length >= maxMeldsForMode(prev.mode)) return prev;
+      if (!selectedCombo.every(c => prev.player.hand.some(t => t.id === c.id))) return prev;
       const updatedHand = prev.player.hand.filter(t => !selectedCombo.some(c => c.id === t.id));
       const newMeld: Meld = { type: 'chow', tiles: [...selectedCombo, d], discardSource: 'ai' };
       const charString = newMeld.tiles.map(t => t.character).join('');
       return {
         ...prev,
         player: { ...prev.player, hand: updatedHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: null, pendingDrawWasKong: false },
+        // See the matching note in handlePlayerPong above.
+        ai: { ...prev.ai, discards: prev.ai.discards.filter(t => t.id !== d.id) },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: null,
@@ -606,6 +656,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   };
 
   const handlePlayerKong = () => {
+    if (actionInFlightRef.current) return;
     if (!gameState.lastDiscard) return;
     if (gameState.player.melds.length >= maxMeldsForMode(gameState.mode)) return;
     if (gameState.wall.length === 0) return;
@@ -613,9 +664,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const combos = getKongCombinations(gameState.player.hand, gameState.player.melds, d);
     if (combos.length === 0) return;
     const match = combos[0];
+    actionInFlightRef.current = true;
     playSfx('meld');
 
     setGameState(prev => {
+      // Authoritative re-check against `prev` — see the matching note in handlePlayerPong.
+      if (!prev.lastDiscard || prev.lastDiscard.id !== d.id) return prev;
+      if (prev.player.melds.length >= maxMeldsForMode(prev.mode)) return prev;
+      if (prev.wall.length === 0) return prev;
+      if (!match.every(c => c.id === d.id || prev.player.hand.some(t => t.id === c.id))) return prev;
       const updatedHand = prev.player.hand.filter(t => !match.some(c => c.id === t.id && c.id !== d.id));
       const newMeld: Meld = { type: 'kong', tiles: match, discardSource: 'ai' };
       const updatedWall = [...prev.wall];
@@ -627,6 +684,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         ...prev,
         wall: updatedWall,
         player: { ...prev.player, hand: finalHand, melds: [...prev.player.melds, newMeld], pendingDrawnTileId: replacementTile?.id ?? null, pendingDrawWasKong: true },
+        // See the matching note in handlePlayerPong above.
+        ai: { ...prev.ai, discards: prev.ai.discards.filter(t => t.id !== d.id) },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: null,
@@ -636,12 +695,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   };
 
   const handlePlayerSelfKong = () => {
+    if (actionInFlightRef.current) return;
     if (gameState.phase !== 'waitingDiscard' || gameState.turn !== 'player') return;
     if (gameState.wall.length === 0) return;
     const options = getSelfKongOptions(gameState.player.hand, gameState.player.melds)
       .filter(opt => opt.isUpgrade || gameState.player.melds.length < maxMeldsForMode(gameState.mode));
     if (options.length === 0) return;
     const option = options[0];
+    actionInFlightRef.current = true;
     playSfx('meld');
 
     setGameState(prev => {
@@ -668,6 +729,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   };
 
   const handlePlayerDeclareWin = () => {
+    if (actionInFlightRef.current) return;
+    actionInFlightRef.current = true;
     const playerHand = gameState.player.hand;
     const playerMelds = gameState.player.melds;
     // Each exposed meld shrinks the concealed hand by 3 relative to the full target.
