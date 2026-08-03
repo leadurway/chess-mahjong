@@ -902,7 +902,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     <div className="flex items-center gap-3 shrink-0">
       {gameState.ai.isBanker && (
         <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
-          👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '坐莊'}
+          👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '莊家'}
         </span>
       )}
       <span className={`${scoreTextClass} font-black font-mono whitespace-nowrap ${gameState.ai.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -935,7 +935,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     <div className="flex items-center gap-3 shrink-0">
       {gameState.player.isBanker && (
         <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
-          👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '坐莊'}
+          👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '莊家'}
         </span>
       )}
       <span className={`${scoreTextClass} font-black font-mono whitespace-nowrap ${gameState.player.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
