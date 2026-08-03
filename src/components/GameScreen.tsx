@@ -871,12 +871,24 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // (shifted inward and padded clear of the camera housing/notch, which sits left or right in
   // this orientation).
   const isPhoneLandscape = isLandscape && !isLargeScreen;
-  const discardMinHeightClass = 'min-h-14'; // phones only — single "hand"-size tile row now in both orientations
-  const discardRowsTarget = isLargeScreen ? (isLandscape ? 2 : 3) : null;
+  const discardMinHeightClass = 'min-h-14'; // phone portrait only (flex-1, no fixed row target)
+  // Landscape (any device) gets a fixed discard-area height sized to an exact row count — 2
+  // rows for iPad/desktop, 1 for phone (screen height is too tight there to spare more, and it
+  // already displays as a single horizontally-scrolling row). Portrait keeps 3 rows on
+  // iPad/desktop, or the old flex-1 stretchy behavior on phone.
+  const discardRowsTarget = isLandscape ? (isLargeScreen ? 2 : 1) : (isLargeScreen ? 3 : null);
   const DISCARD_AREA_PADDING_PX = 12; // py-1.5 (6px top + 6px bottom)
   const discardAreaFixedHeightPx = discardRowsTarget
     ? discardRowsTarget * HAND_TILE_PX + (discardRowsTarget - 1) * HAND_GAP_PX + DISCARD_AREA_PADDING_PX
     : null;
+  // The merged hand+info row's height, in every landscape layout — one tile row plus the same
+  // padding convention as a single discard row, so the hand row and each discard row read as
+  // the same height (4 equal rows on phone; the hand row plus each of the two-row discard
+  // area's rows on iPad/desktop). Needed as an EXPLICIT height because the hand frame inside is
+  // absolutely positioned (see the fixed-centering comment below) and so no longer contributes
+  // to this row's natural content height — without it, the row collapses to whatever the
+  // avatar/score text needs and the (now out-of-flow) tiles spill past its shorter bounds.
+  const landscapeRowHeightPx = HAND_TILE_PX + DISCARD_AREA_PADDING_PX;
 
   // Portrait discards line up in a grid at the hand tile size.
   const discardGridWidthPx = 8 * HAND_TILE_PX + 7 * HAND_GAP_PX;
@@ -1092,9 +1104,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         <div
           className={`shrink-0 w-full ${isPhoneLandscape ? 'py-1.5' : 'px-3 py-1.5'} bg-black/20 border-b border-white/5 flex items-center justify-between relative`}
           style={isPhoneLandscape ? {
+            height: `${landscapeRowHeightPx}px`,
             paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
             paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
-          } : undefined}
+          } : { height: `${landscapeRowHeightPx}px` }}
         >
           {aiAvatarName}
           {/* Pinned to the row's true horizontal center via absolute positioning (all
@@ -1120,14 +1133,15 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── AI DISCARDS ── */}
       <div
-        className={`${isLargeScreen ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
+        className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
         style={
           isLargeScreen
             ? { height: `${discardAreaFixedHeightPx}px` }
             : isPhoneLandscape
               // iPhones with a notch/Dynamic Island shift it into one side in landscape —
-              // reserve that safe area instead of scrolling content underneath it.
-              ? { paddingLeft: 'max(0.5rem, env(safe-area-inset-left))', paddingRight: 'max(0.5rem, env(safe-area-inset-right))' }
+              // reserve that safe area instead of scrolling content underneath it. Fixed
+              // height (1 tile row) matches the merged hand+info row's landscapeRowHeightPx.
+              ? { height: `${discardAreaFixedHeightPx}px`, paddingLeft: 'max(0.5rem, env(safe-area-inset-left))', paddingRight: 'max(0.5rem, env(safe-area-inset-right))' }
               : undefined
         }
       >
@@ -1159,21 +1173,22 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       </div>
 
       {/* Neutral "table space" — absorbs any real leftover vertical space between the two
-          discard piles on very tall/wide large screens, instead of either discard area
-          stretching to fill it. Phones have no equivalent (their discard areas stay flex-1
-          exactly as before). */}
-      {isLargeScreen && <div className="flex-1" />}
+          discard piles on any landscape layout (large screens' 2-row discards, or phone
+          landscape's now-fixed 1-row discards), instead of either discard area stretching to
+          fill it. Portrait phone has no equivalent (its discard areas stay flex-1). */}
+      {isLandscape && <div className="flex-1" />}
 
       {/* ── PLAYER DISCARDS ── */}
       <div
-        className={`${isLargeScreen ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
+        className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
         style={
           isLargeScreen
             ? { height: `${discardAreaFixedHeightPx}px` }
             : isPhoneLandscape
               // iPhones with a notch/Dynamic Island shift it into one side in landscape —
-              // reserve that safe area instead of scrolling content underneath it.
-              ? { paddingLeft: 'max(0.5rem, env(safe-area-inset-left))', paddingRight: 'max(0.5rem, env(safe-area-inset-right))' }
+              // reserve that safe area instead of scrolling content underneath it. Fixed
+              // height (1 tile row) matches the merged hand+info row's landscapeRowHeightPx.
+              ? { height: `${discardAreaFixedHeightPx}px`, paddingLeft: 'max(0.5rem, env(safe-area-inset-left))', paddingRight: 'max(0.5rem, env(safe-area-inset-right))' }
               : undefined
         }
       >
@@ -1210,9 +1225,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           <div
             className={`w-full ${isPhoneLandscape ? 'py-1.5' : 'px-3 py-1.5'} bg-black/20 border-b border-white/5 flex items-center justify-between relative`}
             style={isPhoneLandscape ? {
+              height: `${landscapeRowHeightPx}px`,
               paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
               paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
-            } : undefined}
+            } : { height: `${landscapeRowHeightPx}px` }}
           >
             {playerAvatarName}
             {/* See the matching AI row's comment above — absolute-centers on every landscape
