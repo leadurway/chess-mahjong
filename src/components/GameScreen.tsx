@@ -907,20 +907,18 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         <span>電腦</span>
         <span className="text-amber-300 capitalize">{gameState.difficulty}</span>
       </div>
-    </div>
-  );
-
-  const aiBankerScore = (
-    <div className="flex items-center gap-3 shrink-0">
       {gameState.ai.isBanker && (
         <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
           👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '莊家'}
         </span>
       )}
-      <span className={`${scoreTextClass} font-black font-mono whitespace-nowrap ${gameState.ai.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
-        {gameState.ai.score.toLocaleString()}
-      </span>
     </div>
+  );
+
+  const aiScore = (
+    <span className={`${scoreTextClass} font-black font-mono whitespace-nowrap shrink-0 ${gameState.ai.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
+      {gameState.ai.score.toLocaleString()}
+    </span>
   );
 
   const aiHandMeldFrame = (
@@ -940,20 +938,18 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         你
       </div>
       <span className={`${nameTextClass} font-bold font-serif leading-none whitespace-nowrap`}>{playerName}</span>
-    </div>
-  );
-
-  const playerBankerScore = (
-    <div className="flex items-center gap-3 shrink-0">
       {gameState.player.isBanker && (
         <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
           👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '莊家'}
         </span>
       )}
-      <span className={`${scoreTextClass} font-black font-mono whitespace-nowrap ${gameState.player.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
-        {gameState.player.score.toLocaleString()}
-      </span>
     </div>
+  );
+
+  const playerScore = (
+    <span className={`${scoreTextClass} font-black font-mono whitespace-nowrap shrink-0 ${gameState.player.score >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
+      {gameState.player.score.toLocaleString()}
+    </span>
   );
 
   const playerHandMeldFrame = (
@@ -1112,18 +1108,18 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           {aiAvatarName}
           {/* Pinned to the row's true horizontal center via absolute positioning (all
               landscape layouts — phone, iPad, and PC web alike), so it never shifts when
-              aiAvatarName/aiBankerScore's own width changes (e.g. AI difficulty text, or
-              莊家/莊連N banker label length) — unlike flex-1 centering, which centers within
-              whatever space is left AFTER those two variable-width siblings, not the row
-              itself. */}
+              aiAvatarName/aiScore's own width changes (e.g. AI difficulty text, or 莊家/莊連N
+              banker label length, both now part of aiAvatarName) — unlike flex-1 centering,
+              which centers within whatever space is left AFTER those two variable-width
+              siblings, not the row itself. */}
           <div className="absolute left-1/2 -translate-x-1/2 overflow-x-auto">{aiHandMeldFrame}</div>
-          {aiBankerScore}
+          {aiScore}
         </div>
       ) : (
         <>
           <div className="shrink-0 w-full px-3 py-2 bg-black/20 border-b border-white/5 flex items-center justify-between">
             {aiAvatarName}
-            {aiBankerScore}
+            {aiScore}
           </div>
           <div className="shrink-0 w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10 flex justify-center overflow-x-auto">
             {aiHandMeldFrame}
@@ -1234,7 +1230,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             {/* See the matching AI row's comment above — absolute-centers on every landscape
                 layout so info/banker-label width changes never shift the hand position. */}
             <div className="absolute left-1/2 -translate-x-1/2 overflow-x-auto">{playerHandMeldFrame}</div>
-            {playerBankerScore}
+            {playerScore}
           </div>
         ) : (
           <div className="w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10 flex justify-center overflow-x-auto">
@@ -1249,7 +1245,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {!isLandscape && (
         <div className="shrink-0 w-full px-3 py-2 bg-black/20 border-b border-white/5 flex items-center justify-between">
           {playerAvatarName}
-          {playerBankerScore}
+          {playerScore}
         </div>
       )}
 
