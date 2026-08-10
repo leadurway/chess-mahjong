@@ -1209,21 +1209,24 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             isPhoneLandscape
               ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
               : isLandscape
-                // Large-screen landscape: a fixed-width frame (same 8-tile width as phone
-                // portrait below), centered via mx-auto — exactly how the hand/meld row is
-                // sized and centered. Discards fill the frame left-to-right/top-to-bottom by
-                // index, so existing tiles never move as more are appended; only the frame's
-                // own centering (not per-row re-centering) determines position, unlike
-                // flex-wrap + justify-center which would re-center — and thus shift — a
-                // partially-filled row every time a new tile joins it.
-                ? `grid ${handGapClass} content-start mx-auto`
+                // Large-screen landscape: pack as many tiles per row as the available width
+                // allows (same as iPad portrait below), but centered. The key is `auto-fit`
+                // instead of `auto-fill` in the columns definition below — auto-fill reserves
+                // space for every column that COULD fit (leaving empty trailing tracks that
+                // `justify-content` has nothing to redistribute around), while auto-fit
+                // collapses unused tracks to zero width, so only the actually-occupied columns
+                // remain — which `justify-content: center` can then center as a block. Tiles
+                // still fill left-to-right/top-to-bottom by index within that.
+                ? `grid ${handGapClass} content-start justify-center w-full`
                 : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
           }
           style={!isPhoneLandscape ? {
-            gridTemplateColumns: portraitAutoFillDiscards
-              ? `repeat(auto-fill, ${HAND_TILE_PX}px)`
-              : `repeat(8, ${HAND_TILE_PX}px)`,
-            width: portraitAutoFillDiscards ? '100%' : `${discardGridWidthPx}px`,
+            gridTemplateColumns: isLandscape
+              ? `repeat(auto-fit, ${HAND_TILE_PX}px)`
+              : portraitAutoFillDiscards
+                ? `repeat(auto-fill, ${HAND_TILE_PX}px)`
+                : `repeat(8, ${HAND_TILE_PX}px)`,
+            width: (portraitAutoFillDiscards || isLandscape) ? '100%' : `${discardGridWidthPx}px`,
           } : undefined}
         >
           {gameState.ai.discards.map((tile, index) => {
@@ -1263,21 +1266,24 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             isPhoneLandscape
               ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
               : isLandscape
-                // Large-screen landscape: a fixed-width frame (same 8-tile width as phone
-                // portrait below), centered via mx-auto — exactly how the hand/meld row is
-                // sized and centered. Discards fill the frame left-to-right/top-to-bottom by
-                // index, so existing tiles never move as more are appended; only the frame's
-                // own centering (not per-row re-centering) determines position, unlike
-                // flex-wrap + justify-center which would re-center — and thus shift — a
-                // partially-filled row every time a new tile joins it.
-                ? `grid ${handGapClass} content-start mx-auto`
+                // Large-screen landscape: pack as many tiles per row as the available width
+                // allows (same as iPad portrait below), but centered. The key is `auto-fit`
+                // instead of `auto-fill` in the columns definition below — auto-fill reserves
+                // space for every column that COULD fit (leaving empty trailing tracks that
+                // `justify-content` has nothing to redistribute around), while auto-fit
+                // collapses unused tracks to zero width, so only the actually-occupied columns
+                // remain — which `justify-content: center` can then center as a block. Tiles
+                // still fill left-to-right/top-to-bottom by index within that.
+                ? `grid ${handGapClass} content-start justify-center w-full`
                 : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
           }
           style={!isPhoneLandscape ? {
-            gridTemplateColumns: portraitAutoFillDiscards
-              ? `repeat(auto-fill, ${HAND_TILE_PX}px)`
-              : `repeat(8, ${HAND_TILE_PX}px)`,
-            width: portraitAutoFillDiscards ? '100%' : `${discardGridWidthPx}px`,
+            gridTemplateColumns: isLandscape
+              ? `repeat(auto-fit, ${HAND_TILE_PX}px)`
+              : portraitAutoFillDiscards
+                ? `repeat(auto-fill, ${HAND_TILE_PX}px)`
+                : `repeat(8, ${HAND_TILE_PX}px)`,
+            width: (portraitAutoFillDiscards || isLandscape) ? '100%' : `${discardGridWidthPx}px`,
           } : undefined}
         >
           {gameState.player.discards.map((tile, index) => {
