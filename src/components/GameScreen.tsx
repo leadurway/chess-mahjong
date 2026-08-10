@@ -64,6 +64,14 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const isLargeScreen = useIsLargeScreen();
   const logEndRef = useRef<HTMLDivElement>(null);
   const confirmExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Measures the discard row's own available width on large-screen landscape (iPad/desktop) so
+  // its grid can be sized to a FIXED number of columns — "however many tiles the row can fit"
+  // — rather than remeasuring per render. This is safe from the circular-measurement problem
+  // that ruled out ResizeObserver elsewhere in this file: the row's available width never
+  // depends on how many discards currently exist or how the grid renders, only on the screen
+  // size, so there's no feedback loop.
+  const landscapeDiscardRowRef = useRef<HTMLDivElement>(null);
+  const [landscapeDiscardMaxPerRow, setLandscapeDiscardMaxPerRow] = useState<number>(8);
   // Guards every player-triggered turn action (draw/discard/pong/eat/kong/self-kong/declare-win)
   // against re-entrant double-invocation — e.g. a fast double-tap, common on the iPhone/iPad
   // this game targets. Each handler checks-and-sets this at its very start and bails out if
@@ -961,6 +969,33 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // portrait keeps the original fixed 8-per-row layout.
   const portraitAutoFillDiscards = isLargeScreen && !isLandscape;
 
+  // Large-screen landscape: same "pack the maximum tiles the available width allows" as iPad
+  // portrait above, but ALSO centered as a stable block — which auto-fill/auto-fit alone can't
+  // do (their track count is inherently only known once laid out, so there's nothing stable
+  // to center against without a real per-row tile budget). Measuring once gives a concrete
+  // per-row tile count, which turns into a FIXED-width frame — the same technique the hand row
+  // already uses — so the row's "planned" full set of slots is what's centered, and discards
+  // filling in left-to-right within it never shift already-placed tiles.
+  const isLargeLandscape = isLandscape && isLargeScreen;
+  useEffect(() => {
+    if (!isLargeLandscape || !landscapeDiscardRowRef.current) return;
+    const el = landscapeDiscardRowRef.current;
+    const compute = () => {
+      // clientWidth includes this row's own horizontal padding (px-2), which isn't available
+      // to the grid child — subtract it, or a too-wide estimate could compute one more column
+      // than actually fits and clip the rightmost tile against that padding.
+      const cs = getComputedStyle(el);
+      const availableWidth = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const perRow = Math.max(1, Math.floor((availableWidth + HAND_GAP_PX) / (HAND_TILE_PX + HAND_GAP_PX)));
+      setLandscapeDiscardMaxPerRow(perRow);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isLargeLandscape, HAND_TILE_PX, HAND_GAP_PX]);
+  const landscapeDiscardGridWidthPx = landscapeDiscardMaxPerRow * HAND_TILE_PX + (landscapeDiscardMaxPerRow - 1) * HAND_GAP_PX;
+
   const aiAvatarName = (
     <div className="flex items-center gap-2 shrink-0">
       <div className={`${avatarSizeClass} rounded-full bg-red-600 border border-white/50 flex items-center justify-center ${avatarTextClass} font-bold shrink-0`}>
@@ -1192,6 +1227,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── AI DISCARDS ── */}
       <div
+        ref={isLargeLandscape ? landscapeDiscardRowRef : undefined}
         className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
         style={
           isLargeScreen
@@ -1209,24 +1245,22 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             isPhoneLandscape
               ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
               : isLandscape
-                // Large-screen landscape: pack as many tiles per row as the available width
-                // allows (same as iPad portrait below), but centered. The key is `auto-fit`
-                // instead of `auto-fill` in the columns definition below — auto-fill reserves
-                // space for every column that COULD fit (leaving empty trailing tracks that
-                // `justify-content` has nothing to redistribute around), while auto-fit
-                // collapses unused tracks to zero width, so only the actually-occupied columns
-                // remain — which `justify-content: center` can then center as a block. Tiles
-                // still fill left-to-right/top-to-bottom by index within that.
-                ? `grid ${handGapClass} content-start justify-center w-full`
+                // Large-screen landscape: a fixed-width frame sized to landscapeDiscardMaxPerRow
+                // (measured once from the row's own available width — see the effect above),
+                // centered via mx-auto — exactly how the hand/meld row is sized and centered.
+                // Discards fill the frame left-to-right/top-to-bottom by index, so existing
+                // tiles never move as more are appended; the frame represents the row's full
+                // planned capacity, not just however many happen to be placed so far.
+                ? `grid ${handGapClass} content-start mx-auto`
                 : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
           }
           style={!isPhoneLandscape ? {
             gridTemplateColumns: isLandscape
-              ? `repeat(auto-fit, ${HAND_TILE_PX}px)`
+              ? `repeat(${landscapeDiscardMaxPerRow}, ${HAND_TILE_PX}px)`
               : portraitAutoFillDiscards
                 ? `repeat(auto-fill, ${HAND_TILE_PX}px)`
                 : `repeat(8, ${HAND_TILE_PX}px)`,
-            width: (portraitAutoFillDiscards || isLandscape) ? '100%' : `${discardGridWidthPx}px`,
+            width: isLandscape ? `${landscapeDiscardGridWidthPx}px` : portraitAutoFillDiscards ? '100%' : `${discardGridWidthPx}px`,
           } : undefined}
         >
           {gameState.ai.discards.map((tile, index) => {
@@ -1266,24 +1300,22 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             isPhoneLandscape
               ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
               : isLandscape
-                // Large-screen landscape: pack as many tiles per row as the available width
-                // allows (same as iPad portrait below), but centered. The key is `auto-fit`
-                // instead of `auto-fill` in the columns definition below — auto-fill reserves
-                // space for every column that COULD fit (leaving empty trailing tracks that
-                // `justify-content` has nothing to redistribute around), while auto-fit
-                // collapses unused tracks to zero width, so only the actually-occupied columns
-                // remain — which `justify-content: center` can then center as a block. Tiles
-                // still fill left-to-right/top-to-bottom by index within that.
-                ? `grid ${handGapClass} content-start justify-center w-full`
+                // Large-screen landscape: a fixed-width frame sized to landscapeDiscardMaxPerRow
+                // (measured once from the row's own available width — see the effect above),
+                // centered via mx-auto — exactly how the hand/meld row is sized and centered.
+                // Discards fill the frame left-to-right/top-to-bottom by index, so existing
+                // tiles never move as more are appended; the frame represents the row's full
+                // planned capacity, not just however many happen to be placed so far.
+                ? `grid ${handGapClass} content-start mx-auto`
                 : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
           }
           style={!isPhoneLandscape ? {
             gridTemplateColumns: isLandscape
-              ? `repeat(auto-fit, ${HAND_TILE_PX}px)`
+              ? `repeat(${landscapeDiscardMaxPerRow}, ${HAND_TILE_PX}px)`
               : portraitAutoFillDiscards
                 ? `repeat(auto-fill, ${HAND_TILE_PX}px)`
                 : `repeat(8, ${HAND_TILE_PX}px)`,
-            width: (portraitAutoFillDiscards || isLandscape) ? '100%' : `${discardGridWidthPx}px`,
+            width: isLandscape ? `${landscapeDiscardGridWidthPx}px` : portraitAutoFillDiscards ? '100%' : `${discardGridWidthPx}px`,
           } : undefined}
         >
           {gameState.player.discards.map((tile, index) => {
