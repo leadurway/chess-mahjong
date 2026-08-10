@@ -1209,10 +1209,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             isPhoneLandscape
               ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
               : isLandscape
-                ? `flex flex-wrap ${handGapClass} content-start`
+                // Large-screen landscape: a fixed-width frame (same 8-tile width as phone
+                // portrait below), centered via mx-auto — exactly how the hand/meld row is
+                // sized and centered. Discards fill the frame left-to-right/top-to-bottom by
+                // index, so existing tiles never move as more are appended; only the frame's
+                // own centering (not per-row re-centering) determines position, unlike
+                // flex-wrap + justify-center which would re-center — and thus shift — a
+                // partially-filled row every time a new tile joins it.
+                ? `grid ${handGapClass} content-start mx-auto`
                 : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
           }
-          style={!isLandscape ? {
+          style={!isPhoneLandscape ? {
             gridTemplateColumns: portraitAutoFillDiscards
               ? `repeat(auto-fill, ${HAND_TILE_PX}px)`
               : `repeat(8, ${HAND_TILE_PX}px)`,
@@ -1256,10 +1263,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             isPhoneLandscape
               ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
               : isLandscape
-                ? `flex flex-wrap ${handGapClass} content-start`
+                // Large-screen landscape: a fixed-width frame (same 8-tile width as phone
+                // portrait below), centered via mx-auto — exactly how the hand/meld row is
+                // sized and centered. Discards fill the frame left-to-right/top-to-bottom by
+                // index, so existing tiles never move as more are appended; only the frame's
+                // own centering (not per-row re-centering) determines position, unlike
+                // flex-wrap + justify-center which would re-center — and thus shift — a
+                // partially-filled row every time a new tile joins it.
+                ? `grid ${handGapClass} content-start mx-auto`
                 : `grid ${handGapClass} content-start ${portraitAutoFillDiscards ? 'w-full' : 'mx-auto'}`
           }
-          style={!isLandscape ? {
+          style={!isPhoneLandscape ? {
             gridTemplateColumns: portraitAutoFillDiscards
               ? `repeat(auto-fill, ${HAND_TILE_PX}px)`
               : `repeat(8, ${HAND_TILE_PX}px)`,
