@@ -635,13 +635,12 @@ export function calculateFans(
     fans.push({ name: soldierIsRed ? '五兵合縱 (Five Red Soldiers Meld)' : '五卒連橫 (Five Black Soldiers Meld)', value: 2 });
   }
 
-  // 天胡 / 地胡 — both require a self-drawn win before any discard has happened AND on the
-  // very first tile ever drawn. isFirstMove (zero discards) alone isn't enough: a self-kong
-  // (暗槓/補槓) draws a replacement tile without requiring a discard first, so a winner could
-  // still show zero discards while this is actually their SECOND tile drawn this game —
-  // excluding isKongReplacement closes that gap (it also still correctly scores as 槓上開花
-  // instead, via the check above).
-  if (ctx.isFirstMove && ctx.isSelfDraw && !ctx.isKongReplacement) {
+  // 天胡 / 地胡 — both require a self-drawn win before the winner's first discard. isFirstMove
+  // (zero discards) is the right test on its own: a self-kong (暗槓/補槓) drawn and resolved
+  // within that same first turn — even chained multiple times — still counts, since the
+  // winner hasn't discarded yet either way. It's only excluded once a REAL later turn has
+  // begun (i.e. after their first discard), which isFirstMove already reflects.
+  if (ctx.isFirstMove && ctx.isSelfDraw) {
     const value = mode === 32 ? 6 : 8;
     fans.push({ name: ctx.isWinnerBanker ? '天胡 (Heavenly Win)' : '地胡 (Earthly Win)', value });
   }
