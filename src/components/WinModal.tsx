@@ -5,7 +5,7 @@ import { sortHandForDisplay, getMeldDisplayTiles } from '../utils/gameEngine';
 import { useIsLargeScreen } from '../hooks/useResponsive';
 
 interface WinModalProps {
-  winner: 'player' | 'ai';
+  winner: 'player' | 'ai' | null; // null = 流局 (drawn game, wall exhausted with nobody winning)
   winningTile: Tile | null;
   isSelfDraw: boolean;
   fans: Array<{ name: string; value: number }>;
@@ -248,9 +248,11 @@ export const WinModal: React.FC<WinModalProps> = ({
         {/* b. Win message box — same color scheme as the active draw button, height reduced to 60% */}
         <div className={`w-full ${boxHeightClass} mb-4 rounded-2xl bg-red-600 text-white shadow-[0_0_24px_8px_rgba(220,38,38,0.55)] ring-2 ring-red-300 flex flex-col items-center justify-center`}>
           <span className={`${winTextClass} font-serif font-black`}>
-            {isPlayerWin ? '玩家' : '電腦'} {isSelfDraw ? '自摸' : '胡牌'}！
+            {winner === null ? '流局' : `${isPlayerWin ? '玩家' : '電腦'} ${isSelfDraw ? '自摸' : '胡牌'}！`}
           </span>
-          <span className={`${winSubTextClass} mt-0.5 opacity-90`}>{isPlayerWin ? '🌟 恭喜獲勝！' : '💀 對手胡牌了'}</span>
+          <span className={`${winSubTextClass} mt-0.5 opacity-90`}>
+            {winner === null ? '🀄 牌牆已摸光，不分勝負' : isPlayerWin ? '🌟 恭喜獲勝！' : '💀 對手胡牌了'}
+          </span>
         </div>
 
         {/* c. Fan / score calculation */}

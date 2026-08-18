@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { BookOpen, Volume2, VolumeX, LogOut, Info, ArrowRight, ScrollText, X } from 'lucide-react';
+import { BookOpen, Volume2, VolumeX, LogOut, Info, ScrollText, X } from 'lucide-react';
 import { Tile, GameMode, Difficulty, Meld, PlayerState, GameState } from '../types';
 import { ChessTile, glowOverlayStyle } from './ChessTile';
 import {
@@ -149,8 +149,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   }, [gameState]);
 
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
-  const [pendingEatCombos, setPendingEatCombos] = useState<Tile[][] | null>(null);
-  const [showEatSelections, setShowEatSelections] = useState<boolean>(false);
   // Self-kong / self-draw-win popups (offered on the player's own turn, not via
   // showMeldSelect) don't have a game-state phase to "pass" back into — they're just an
   // optional offer alongside the otherwise-normal waitingDiscard turn. This tracks whether
@@ -622,14 +620,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     });
   };
 
+  // getEatCombinations never returns more than one entry (see its doc comment) — a discard's
+  // role always maps to exactly one possible sequence, so there is never a real choice between
+  // alternatives to prompt the player for.
   const handlePlayerEat = () => {
     if (gameState.phase !== 'showMeldSelect' || !gameState.lastDiscard) return;
     if (gameState.player.melds.length >= maxMeldsForMode(gameState.mode)) return;
     const d = gameState.lastDiscard;
     const combos = getEatCombinations(gameState.player.hand, d);
     if (combos.length === 0) return;
-    if (combos.length === 1) { executeEat(combos[0]); }
-    else { setPendingEatCombos(combos); setShowEatSelections(true); }
+    executeEat(combos[0]);
   };
 
   const executeEat = (selectedCombo: Tile[]) => {
@@ -639,8 +639,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     if (gameState.player.melds.length >= maxMeldsForMode(gameState.mode)) return;
     actionInFlightRef.current = true;
     playSfx('meld');
-    setShowEatSelections(false);
-    setPendingEatCombos(null);
 
     setGameState(prev => {
       // Authoritative re-check against `prev` — see the matching note in handlePlayerPong.
@@ -1485,42 +1483,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         )}
       </AnimatePresence>
 
-      {/* ── EAT COMBO SELECTION MODAL ── */}
-      {showEatSelections && pendingEatCombos && (
-        <div className="fixed inset-0 bg-black/75 flex items-end justify-center z-50 p-0 backdrop-blur-sm">
-          <div className="bg-stone-900 border border-amber-500/20 rounded-t-3xl p-6 w-full shadow-2xl max-h-[85dvh] overflow-y-auto">
-            <h3 className="text-base font-bold font-serif text-amber-400 mb-1 text-center">選擇吃牌組合</h3>
-            <p className="text-stone-400 text-[11px] mb-4 text-center">有多組匹配方案，請選一組：</p>
-            <div className="space-y-2.5 mb-4">
-              {pendingEatCombos.map((combo, idx) => {
-                const combined = [...combo, gameState.lastDiscard!];
-                return (
-                  <button
-                    key={`eat_c_${idx}`}
-                    onClick={() => executeEat(combo)}
-                    className="w-full bg-stone-800 hover:bg-stone-750 border border-stone-700 active:scale-95 p-3 rounded-xl flex items-center justify-between transition"
-                  >
-                    <div className="flex gap-1.5">
-                      {combined.map((t, cIdx) => (
-                        <ChessTile key={`ec_${idx}_${cIdx}`} tile={t} size="sm" />
-                      ))}
-                    </div>
-                    <span className="text-[11px] text-amber-500 font-semibold flex items-center gap-0.5">
-                      選此組 <ArrowRight size={12} />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              onClick={() => { setShowEatSelections(false); setPendingEatCombos(null); }}
-              className="w-full text-stone-400 hover:text-stone-200 text-sm py-2"
-            >
-              取消
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── RULES MODAL ── */}
       {showRules && (
@@ -1529,8 +1491,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         </div>
       )}
 
-      {/* ── WIN/LOSE MODAL ── */}
-      {gameState.phase === 'gameOver' && gameState.winInfo && gameState.winInfo.winner && (
+      {/* ── WIN/LOSE/DRAW MODAL ── */}
+      {/* 流局 (winner: null, wall exhausted with nobody winning) reuses the exact same modal as
+          a real win — WinModal swaps in "流局" text for that case — rather than a separately
+          styled bottom sheet, so the two "round just ended" states look and behave the same. */}
+      {gameState.phase === 'gameOver' && gameState.winInfo && (
         <WinModal
           winner={gameState.winInfo.winner}
           winningTile={gameState.winInfo.winningTile}
@@ -1544,25 +1509,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           mode={gameState.mode}
           onRestart={handleReplay}
         />
-      )}
-
-      {/* ── DRAW GAME MODAL ── */}
-      {gameState.phase === 'gameOver' && gameState.winInfo && !gameState.winInfo.winner && (
-        <div className="fixed inset-0 bg-black/80 flex items-end justify-center z-50 p-0">
-          <div className="bg-stone-900 border-t border-stone-700 rounded-t-3xl p-8 w-full shadow-2xl text-center max-h-[85dvh] overflow-y-auto">
-            <span className="text-4xl">🏁</span>
-            <h2 className="text-xl font-serif font-bold text-stone-300 mt-3 mb-1">流局結算</h2>
-            <p className="text-stone-500 text-xs mb-6">底牌已摸光，雙方均未胡牌。</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={handleReplay} className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-stone-950 font-serif font-bold py-3 rounded-xl">
-                再來一局
-              </button>
-              <button onClick={onExit} className="bg-stone-800 hover:bg-stone-700 active:scale-95 text-stone-300 font-semibold py-3 rounded-xl border border-stone-700">
-                返回選單
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
     </div>

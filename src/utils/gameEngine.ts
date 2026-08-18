@@ -310,8 +310,17 @@ export function isWinningHand(concealedHand: Tile[], exposedMelds: Meld[]): bool
 
 // Find if player can call "Eat" (吃)
 // Returns array of pairs of Tiles in hand that can combine with discard to form a sequence
+// Each color has exactly two fixed sequences (see RED_SEQUENCES/BLACK_SEQUENCES above), and
+// every role belongs to only one of them — so a given discard's role uniquely determines the
+// one sequence it could complete, and thus the one role-pair needed from hand. There is never
+// more than one semantically distinct chow choice for a given discard; this only returns more
+// than one entry when hand happens to hold a DUPLICATE of one of those roles (e.g. two 帥),
+// which are interchangeable, identical-looking choices, not real alternatives — deduped below
+// by role-pair so callers never need to offer a "pick one" selection for what is really a
+// single option.
 export function getEatCombinations(hand: Tile[], discard: Tile): Tile[][] {
   const validCombos: Tile[][] = [];
+  const seenRolePairs = new Set<string>();
   const discardColor = discard.color;
   const r = discard.role;
 
@@ -338,6 +347,9 @@ export function getEatCombinations(hand: Tile[], discard: Tile): Tile[][] {
       if (h1.role === h2.role || h1.role === r || h2.role === r) continue;
 
       if (isSeq([r, h1.role, h2.role], discardColor)) {
+        const rolePair = [h1.role, h2.role].sort().join('_');
+        if (seenRolePairs.has(rolePair)) continue;
+        seenRolePairs.add(rolePair);
         validCombos.push([h1, h2]);
       }
     }
@@ -623,10 +635,13 @@ export function calculateFans(
     fans.push({ name: soldierIsRed ? '五兵合縱 (Five Red Soldiers Meld)' : '五卒連橫 (Five Black Soldiers Meld)', value: 2 });
   }
 
-  // 天胡 / 地胡 — both require a self-drawn win before any discard has happened. 天胡 is the
-  // banker's own dealt hand already being complete; 地胡 is the idle side winning on their
-  // first draw.
-  if (ctx.isFirstMove && ctx.isSelfDraw) {
+  // 天胡 / 地胡 — both require a self-drawn win before any discard has happened AND on the
+  // very first tile ever drawn. isFirstMove (zero discards) alone isn't enough: a self-kong
+  // (暗槓/補槓) draws a replacement tile without requiring a discard first, so a winner could
+  // still show zero discards while this is actually their SECOND tile drawn this game —
+  // excluding isKongReplacement closes that gap (it also still correctly scores as 槓上開花
+  // instead, via the check above).
+  if (ctx.isFirstMove && ctx.isSelfDraw && !ctx.isKongReplacement) {
     const value = mode === 32 ? 6 : 8;
     fans.push({ name: ctx.isWinnerBanker ? '天胡 (Heavenly Win)' : '地胡 (Earthly Win)', value });
   }
