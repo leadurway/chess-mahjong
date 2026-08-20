@@ -259,10 +259,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
   // Easy AI keeps its original flat-heuristic discard (getAIDiscard) untouched; Hard AI
   // ("大師") uses the shanten-style evaluator, which also steers away from tiles the
-  // opponent has already shown (via their exposed melds) that they collect.
+  // opponent has already shown (via their exposed melds) that they collect, treats tiles the
+  // opponent has themselves discarded as comparatively safer, and scales its caution up as the
+  // opponent gets closer to their mode's meld cap (i.e. closer to tenpai).
   const chooseAIDiscard = (hand: Tile[], meldsCount: number): Tile => {
     return gameState.difficulty === 'hard'
-      ? getAIDiscardAdvanced(hand, meldsCount, gameState.mode, gameState.player.melds)
+      ? getAIDiscardAdvanced(hand, meldsCount, gameState.mode, gameState.player.melds, gameState.player.discards)
       : getAIDiscard(hand);
   };
 

@@ -898,28 +898,51 @@ export function computeHandProgressScore(concealedHand: Tile[], exposedMeldsCoun
 }
 
 // Hard-only discard choice: for each candidate discard, score the resulting hand with the
-// shanten-style evaluator above, and steer away from tiles the opponent has already shown
-// (via their own exposed melds) that they collect — using only public information, not a
-// peek at their concealed hand.
+// shanten-style evaluator above, then adjust for how risky that specific tile looks to hand to
+// the opponent — using only public information (their exposed melds and their own discard
+// pile), never a peek at their concealed hand. Three signals combine:
+//   1. Exposed-meld danger — a tile matching something the opponent has already openly
+//      committed to collecting is the clearest signal of all; heavily penalized.
+//   2. Discard-history safety (genbutsu) — a tile the opponent has themselves already
+//      discarded is comparatively safer: without a 振聴/furiten rule this isn't an absolute
+//      guarantee, but they evidently didn't need one when they had the chance, which is still
+//      meaningful evidence. Tiles that are neither confirmed-dangerous nor confirmed-safe sit
+//      in between and get a smaller, scaled caution penalty instead of being treated as free.
+//   3. Tenpai-proximity scaling — both the danger and caution penalties grow as the opponent's
+//      meld count approaches the mode's cap, since that's the only public signal available for
+//      "how close to winning are they" — treating early-game and near-tenpai discards with the
+//      same level of caution would waste the hand-progress score on non-issues most of the game.
 export function getAIDiscardAdvanced(
   hand: Tile[],
   ownMeldsCount: number,
   mode: GameMode,
-  opponentMelds: Meld[] = []
+  opponentMelds: Meld[] = [],
+  opponentDiscards: Tile[] = []
 ): Tile {
   if (hand.length === 0) return {} as Tile;
 
   const dangerousKeys = new Set(opponentMelds.flatMap(m => m.tiles.map(t => `${t.color}_${t.role}`)));
+  const safeKeys = new Set(opponentDiscards.map(t => `${t.color}_${t.role}`));
+
+  const meldsRequired = mode === 32 ? 1 : 2;
+  const opponentProgress = Math.min(1, opponentMelds.length / meldsRequired);
+  // 0.5x caution early game (opponent's melds, if any, aren't very informative yet) ramping up
+  // to 1.5x once they've fully melded out (down to just their eye left to fill — the single
+  // most dangerous stage of the hand).
+  const dangerScale = 0.5 + opponentProgress;
 
   let bestDiscard: Tile = hand[0];
   let bestScore = -Infinity;
 
   for (let i = 0; i < hand.length; i++) {
     const candidate = hand[i];
+    const key = `${candidate.color}_${candidate.role}`;
     const resultingHand = hand.filter((_, idx) => idx !== i);
     let score = computeHandProgressScore(resultingHand, ownMeldsCount, mode);
-    if (dangerousKeys.has(`${candidate.color}_${candidate.role}`)) {
-      score -= 60;
+    if (dangerousKeys.has(key)) {
+      score -= 60 * dangerScale;
+    } else if (!safeKeys.has(key)) {
+      score -= 15 * opponentProgress;
     }
     if (score > bestScore) {
       bestScore = score;
