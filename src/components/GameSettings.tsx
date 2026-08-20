@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { GameMode, Difficulty } from '../types';
 import { RuleGuide } from './RuleGuide';
 import liangLogo from '../assets/liang-logo.png';
@@ -26,22 +26,52 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
     savePlayerProfile({ name: value.trim() || '玩家', score: profile.score });
   };
 
-  // iPad/desktop have plenty of room, so the whole lobby card scales up proportionally
-  // instead of sitting small in the middle of a mostly-empty screen.
+  // The card is ALWAYS laid out exactly like a normal iPhone-portrait lobby (same classes,
+  // same proportions, same wrapping) regardless of device. iPad/PC web don't get a separately
+  // tuned "large screen" layout — instead the whole card is scaled up uniformly via a CSS
+  // transform to fill the available display height, so it's literally the same UI just bigger,
+  // never a different arrangement.
   const isLargeScreen = useIsLargeScreen();
-  const cardMaxWidthClass = isLargeScreen ? 'max-w-2xl' : 'max-w-md';
-  const logoSizeClass = isLargeScreen ? 'w-24 h-24' : 'w-14 h-14';
-  const logoTextClass = isLargeScreen ? 'text-4xl' : 'text-2xl';
-  const titleTextClass = isLargeScreen ? 'text-4xl' : 'text-2xl';
-  const sectionPadClass = isLargeScreen ? 'p-6' : 'p-3';
-  const labelTextClass = isLargeScreen ? 'text-2xl' : 'text-base';
-  const bodyTextClass = isLargeScreen ? 'text-xl' : 'text-sm';
-  const inputClass = isLargeScreen ? 'px-4 py-3 text-xl' : 'px-3 py-2 text-base';
-  const modeBtnClass = isLargeScreen ? 'py-4 px-2 text-2xl' : 'py-2 px-1 text-base';
-  const modeSubTextClass = isLargeScreen ? 'text-lg' : 'text-sm';
-  const choiceBtnClass = isLargeScreen ? 'py-4 text-2xl' : 'py-2 text-base';
-  const startBtnClass = isLargeScreen ? 'py-7 text-3xl' : 'py-4 text-xl';
-  const rulesBtnClass = isLargeScreen ? 'text-xl py-3' : 'text-base py-1.5';
+  const cardMaxWidthClass = 'max-w-md';
+  const logoSizeClass = 'w-14 h-14';
+  const logoTextClass = 'text-2xl';
+  const titleTextClass = 'text-2xl';
+  const sectionPadClass = 'p-3';
+  const labelTextClass = 'text-base';
+  const bodyTextClass = 'text-sm';
+  const inputClass = 'px-3 py-2 text-base';
+  const modeBtnClass = 'py-2 px-1 text-base';
+  const modeSubTextClass = 'text-sm';
+  const choiceBtnClass = 'py-2 text-base';
+  const startBtnClass = 'py-4 text-xl';
+  const rulesBtnClass = 'text-base py-1.5';
+
+  // Scale factor for the large-screen case: measure the card's own natural (unscaled) size —
+  // offsetWidth/offsetHeight reflect layout size only and are unaffected by the transform we
+  // apply below, so this measurement is safe to re-run without any feedback loop — then compute
+  // how much it can grow to fill the available viewport height (capped by width too, so a tall
+  // but narrow window never clips the card sideways, and capped overall so it doesn't balloon to
+  // an absurd size on very tall displays).
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [cardScale, setCardScale] = useState(1);
+  useEffect(() => {
+    if (!isLargeScreen) { setCardScale(1); return; }
+    const el = cardRef.current;
+    if (!el) return;
+    const compute = () => {
+      const naturalWidth = el.offsetWidth;
+      const naturalHeight = el.offsetHeight;
+      if (naturalWidth === 0 || naturalHeight === 0) return;
+      const heightScale = (window.innerHeight - 24) / naturalHeight;
+      const widthScale = (window.innerWidth - 24) / naturalWidth;
+      setCardScale(Math.max(1, Math.min(heightScale, widthScale, 2.2)));
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    window.addEventListener('resize', compute);
+    return () => { ro.disconnect(); window.removeEventListener('resize', compute); };
+  }, [isLargeScreen]);
 
   return (
     <div
@@ -59,7 +89,11 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
         <div className="w-[500px] h-[500px] rounded-full border-4 border-dashed border-emerald-500/5"></div>
       </div>
 
-      <div className={`w-full ${cardMaxWidthClass} bg-black/40 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl relative z-10 backdrop-blur-md my-auto`}>
+      <div
+        ref={cardRef}
+        className={`w-full ${cardMaxWidthClass} bg-black/40 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl relative z-10 backdrop-blur-md my-auto`}
+        style={{ transform: `scale(${cardScale})` }}
+      >
 
         {/* Calligraphy logo, title, and Liang Game logo — one row */}
         <div className="grid grid-cols-3 items-center mb-3 shrink-0">
