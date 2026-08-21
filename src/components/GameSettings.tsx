@@ -3,7 +3,7 @@ import { GameMode, Difficulty } from '../types';
 import { RuleGuide } from './RuleGuide';
 import liangLogo from '../assets/liang-logo.png';
 import { loadPlayerProfile, savePlayerProfile } from '../utils/playerProfile';
-import { useIsLargeScreen } from '../hooks/useResponsive';
+import { useDeviceType } from '../hooks/useResponsive';
 
 interface GameSettingsProps {
   onStartGame: (config: { mode: GameMode; difficulty: Difficulty; playerIsBanker: boolean; playerName: string }) => void;
@@ -31,7 +31,8 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
   // tuned "large screen" layout — instead the whole card is scaled up uniformly via a CSS
   // transform to fill the available display height, so it's literally the same UI just bigger,
   // never a different arrangement.
-  const isLargeScreen = useIsLargeScreen();
+  const deviceType = useDeviceType();
+  const isLargeScreen = deviceType !== 'iphone';
   const cardMaxWidthClass = 'max-w-md';
   const logoSizeClass = 'w-14 h-14';
   const logoTextClass = 'text-2xl';
@@ -49,11 +50,12 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
   // Scale factor for the large-screen case: measure the card's own natural (unscaled) size —
   // offsetWidth/offsetHeight reflect layout size only and are unaffected by the transform we
   // apply below, so this measurement is safe to re-run without any feedback loop — then compute
-  // how much it can grow to fill the available viewport height (capped by width too, so a tall
-  // but narrow window never clips the card sideways, and capped overall so it doesn't balloon to
-  // an absurd size on very tall displays).
+  // how much it can grow to fill the available viewport (capped by width too, so a tall but
+  // narrow window never clips the card sideways, and capped overall so it doesn't balloon to an
+  // absurd size on very tall displays).
   const cardRef = useRef<HTMLDivElement>(null);
   const [cardScale, setCardScale] = useState(1);
+  const [cardNatural, setCardNatural] = useState({ width: 0, height: 0 });
   useEffect(() => {
     if (!isLargeScreen) { setCardScale(1); return; }
     const el = cardRef.current;
@@ -62,16 +64,26 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
       const naturalWidth = el.offsetWidth;
       const naturalHeight = el.offsetHeight;
       if (naturalWidth === 0 || naturalHeight === 0) return;
-      const heightScale = (window.innerHeight - 24) / naturalHeight;
-      const widthScale = (window.innerWidth - 24) / naturalWidth;
+      // iPad is a single physical device that just rotates — portrait and landscape report the
+      // same two numbers swapped. Always treating the larger one as "height" keeps the card the
+      // exact same size in both orientations (matching the fixed portrait layout) instead of
+      // shrinking it whenever landscape's shorter height would otherwise be the binding
+      // constraint; the page scrolls vertically for whatever no longer fits. A PC-web window
+      // isn't a rotating device, so it keeps using its raw width/height as-is.
+      const [w, h] = deviceType === 'ipad'
+        ? [Math.min(window.innerWidth, window.innerHeight), Math.max(window.innerWidth, window.innerHeight)]
+        : [window.innerWidth, window.innerHeight];
+      const heightScale = (h - 24) / naturalHeight;
+      const widthScale = (w - 24) / naturalWidth;
       setCardScale(Math.max(1, Math.min(heightScale, widthScale, 2.2)));
+      setCardNatural({ width: naturalWidth, height: naturalHeight });
     };
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     window.addEventListener('resize', compute);
     return () => { ro.disconnect(); window.removeEventListener('resize', compute); };
-  }, [isLargeScreen]);
+  }, [isLargeScreen, deviceType]);
 
   return (
     <div
@@ -89,11 +101,19 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
         <div className="w-[500px] h-[500px] rounded-full border-4 border-dashed border-emerald-500/5"></div>
       </div>
 
+      {/* Spacer reserves the card's true SCALED footprint in the layout (transform doesn't
+          affect layout size on its own), so centering and vertical scrolling both work correctly
+          when the scaled card is taller than the viewport — e.g. iPad landscape, which keeps the
+          same scale as portrait and relies on scrolling rather than shrinking further. */}
       <div
-        ref={cardRef}
-        className={`w-full ${cardMaxWidthClass} bg-black/40 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl relative z-10 backdrop-blur-md my-auto`}
-        style={{ transform: `scale(${cardScale})` }}
+        className="my-auto"
+        style={cardNatural.width > 0 ? { width: cardNatural.width * cardScale, height: cardNatural.height * cardScale } : undefined}
       >
+        <div
+          ref={cardRef}
+          className={`w-full ${cardMaxWidthClass} bg-black/40 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl relative z-10 backdrop-blur-md`}
+          style={{ transform: `scale(${cardScale})`, transformOrigin: 'top left' }}
+        >
 
         {/* Calligraphy logo, title, and Liang Game logo — one row */}
         <div className="grid grid-cols-3 items-center mb-3 shrink-0">
@@ -239,6 +259,7 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
           </button>
         </div>
 
+        </div>
       </div>
 
       {/* Rules overlay modal */}
