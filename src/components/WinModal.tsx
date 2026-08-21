@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChessTile } from './ChessTile';
 import { Tile, Meld, GameMode } from '../types';
 import { sortHandForDisplay, getMeldDisplayTiles } from '../utils/gameEngine';
-import { useIsLargeScreen } from '../hooks/useResponsive';
+import { useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
 
 interface WinModalProps {
   winner: 'player' | 'ai' | null; // null = 流局 (drawn game, wall exhausted with nobody winning)
@@ -166,6 +166,15 @@ export const WinModal: React.FC<WinModalProps> = ({
   const fanListTextClass = isLargeScreen ? 'text-lg' : 'text-xs';
   const fanListMaxHeightClass = isLargeScreen ? 'max-h-48' : 'max-h-32';
 
+  // Card scale per device tier (see useSecondaryPageScale). Its own max-height must be computed
+  // in the UNSCALED coordinate space (transform doesn't feed back into layout, so a fixed "85dvh"
+  // cap plus an extra upscale would visually exceed the viewport with no way to reach the
+  // excess) — dividing by scale keeps the VISUAL result capped at 85% of the viewport regardless
+  // of scale, while overflow-y-auto (unchanged) keeps handling the actual scrolling.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const { scale } = useSecondaryPageScale(cardRef);
+  const maxHeightPx = (typeof window !== 'undefined' ? window.innerHeight * 0.85 : 900) / scale;
+
   // Measured post-mount so fireworks can steer clear of the AI/player hand rows and the fan
   // (台數/"score") box — real DOM rects rather than guessed layout percentages, so this stays
   // correct across every screen size and however many tiles/melds either hand has.
@@ -212,7 +221,11 @@ export const WinModal: React.FC<WinModalProps> = ({
     // proven-reliable pattern for iOS Safari (an earlier version of this modal used the
     // outer-scrolls approach and couldn't be scrolled at all in iPhone landscape).
     <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3">
-      <div className={`relative w-full ${cardMaxWidthClass} max-h-[85dvh] overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100`}>
+      <div
+        ref={cardRef}
+        className={`relative w-full ${cardMaxWidthClass} overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100`}
+        style={{ maxHeight: `${maxHeightPx}px`, transform: `scale(${scale})` }}
+      >
 
         {/* a. Both hands, one row each: exposed melds (same chow/pong/kong glow + kong tile-
             compression as the live game) first, then the sorted concealed tiles with the

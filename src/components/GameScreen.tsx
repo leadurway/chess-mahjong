@@ -23,7 +23,15 @@ import { RuleGuide } from './RuleGuide';
 import { WinModal } from './WinModal';
 import liangLogo from '../assets/liang-logo.png';
 import { loadPlayerProfile, savePlayerProfile, calculatePayout, STARTING_SCORE } from '../utils/playerProfile';
-import { useIsLandscape, useIsLargeScreen } from '../hooks/useResponsive';
+import {
+  useIsLandscape,
+  useIsLargeScreen,
+  useDeviceType,
+  useIsSecondaryScreenTier,
+  useGameFitScale,
+  IPHONE_REFERENCE,
+  IPAD_REFERENCE,
+} from '../hooks/useResponsive';
 
 interface GameScreenProps {
   mode: GameMode;
@@ -62,6 +70,19 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [confirmExit, setConfirmExit] = useState<boolean>(false);
   const isLandscape = useIsLandscape();
   const isLargeScreen = useIsLargeScreen();
+  // Secondary-resolution devices (iPhone 11 / iPad mini / PC web landscape) reuse the primary
+  // reference device's (iPhone 14 Pro / iPad) already-tuned layout, scaled to fit — iPhone 14
+  // Pro landscape and iPad landscape themselves (the two "don't touch" reference cases) are
+  // deliberately excluded so their rendering is byte-for-byte identical to before this existed.
+  const deviceType = useDeviceType();
+  const isSecondaryScreenTier = useIsSecondaryScreenTier();
+  const needsGameScale =
+    (deviceType === 'iphone' && isSecondaryScreenTier) ||
+    (deviceType === 'ipad' && isSecondaryScreenTier) ||
+    (deviceType === 'pcweb' && isLandscape);
+  const gameReference = deviceType === 'iphone' ? IPHONE_REFERENCE : IPAD_REFERENCE;
+  const { width: gameRefWidth, height: gameRefHeight } = isLandscape ? gameReference.landscape : gameReference.portrait;
+  const gameFitScale = useGameFitScale(gameRefWidth, gameRefHeight, needsGameScale);
   const logEndRef = useRef<HTMLDivElement>(null);
   const confirmExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Measures the discard row's own available width on large screens (iPad/desktop, both
@@ -1142,8 +1163,20 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     </motion.div>
   );
 
-  return (
-    <div className="h-[100dvh] flex flex-col bg-[#064e3b] text-white overflow-hidden font-sans antialiased">
+  // Rendered as two pieces: `gameBoard` (header through footer, completely unchanged internally)
+  // and `overlays` (the 3 `fixed inset-0` layers below — log sheet, rules modal, WinModal). When
+  // this device/orientation needs the reference-canvas scale (iPhone 11 / iPad mini / PC web
+  // landscape), the overlays must render as SIBLINGS of the scaled canvas rather than nested
+  // inside it: a CSS `transform` on an ancestor becomes the containing block for `fixed`
+  // descendants, which would otherwise size these 3 layers against the small fixed reference
+  // canvas instead of the real viewport, and would double up any scaling those components apply
+  // on their own. For the two protected "don't touch" cases (iPhone 14 Pro landscape, iPad
+  // landscape) `needsGameScale` is always false, so the final return below is just these two
+  // pieces concatenated in a Fragment — byte-for-byte the same DOM as before this existed.
+  const gameBoard = (
+    <div className={needsGameScale
+      ? "h-full flex flex-col bg-[#064e3b] text-white overflow-hidden font-sans antialiased"
+      : "h-[100dvh] flex flex-col bg-[#064e3b] text-white overflow-hidden font-sans antialiased"}>
 
       {/* ── HEADER ── */}
       <header
@@ -1422,7 +1455,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           </button>
         </div>
       </div>
+    </div>
+  );
 
+  const overlays = (
+    <>
       {/* ── GAME LOG BOTTOM SHEET ── */}
       <AnimatePresence>
         {showLog && (
@@ -1512,7 +1549,19 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           onRestart={handleReplay}
         />
       )}
+    </>
+  );
 
+  if (!needsGameScale) {
+    return <>{gameBoard}{overlays}</>;
+  }
+
+  return (
+    <div className="h-[100dvh] w-full overflow-hidden relative flex justify-center items-start bg-[#064e3b]">
+      <div style={{ width: gameRefWidth, height: gameRefHeight, transform: `scale(${gameFitScale})`, transformOrigin: 'top center' }}>
+        {gameBoard}
+      </div>
+      {overlays}
     </div>
   );
 };

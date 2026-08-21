@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { GameMode, Difficulty } from '../types';
 import { RuleGuide } from './RuleGuide';
 import liangLogo from '../assets/liang-logo.png';
 import { loadPlayerProfile, savePlayerProfile } from '../utils/playerProfile';
-import { useDeviceType } from '../hooks/useResponsive';
+import { useSecondaryPageScale } from '../hooks/useResponsive';
 
 interface GameSettingsProps {
   onStartGame: (config: { mode: GameMode; difficulty: Difficulty; playerIsBanker: boolean; playerName: string }) => void;
@@ -31,8 +31,6 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
   // tuned "large screen" layout — instead the whole card is scaled up uniformly via a CSS
   // transform to fill the available display height, so it's literally the same UI just bigger,
   // never a different arrangement.
-  const deviceType = useDeviceType();
-  const isLargeScreen = deviceType !== 'iphone';
   const cardMaxWidthClass = 'max-w-md';
   const logoSizeClass = 'w-14 h-14';
   const logoTextClass = 'text-2xl';
@@ -47,43 +45,12 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
   const startBtnClass = 'py-4 text-xl';
   const rulesBtnClass = 'text-base py-1.5';
 
-  // Scale factor for the large-screen case: measure the card's own natural (unscaled) size —
-  // offsetWidth/offsetHeight reflect layout size only and are unaffected by the transform we
-  // apply below, so this measurement is safe to re-run without any feedback loop — then compute
-  // how much it can grow to fill the available viewport (capped by width too, so a tall but
-  // narrow window never clips the card sideways, and capped overall so it doesn't balloon to an
-  // absurd size on very tall displays).
+  // Scale factor: measures the card's own natural (unscaled) size and fits it to the available
+  // space according to this device's primary/secondary tier — see useSecondaryPageScale for the
+  // per-tier rules (iPhone 14 Pro/iPad stay at their existing tuned size; iPhone 11/iPad mini/PC
+  // web scale to match).
   const cardRef = useRef<HTMLDivElement>(null);
-  const [cardScale, setCardScale] = useState(1);
-  const [cardNatural, setCardNatural] = useState({ width: 0, height: 0 });
-  useEffect(() => {
-    if (!isLargeScreen) { setCardScale(1); return; }
-    const el = cardRef.current;
-    if (!el) return;
-    const compute = () => {
-      const naturalWidth = el.offsetWidth;
-      const naturalHeight = el.offsetHeight;
-      if (naturalWidth === 0 || naturalHeight === 0) return;
-      // iPad is a single physical device that just rotates — portrait and landscape report the
-      // same two numbers swapped. Always treating the larger one as "height" keeps the card the
-      // exact same size in both orientations (matching the fixed portrait layout) instead of
-      // shrinking it whenever landscape's shorter height would otherwise be the binding
-      // constraint; the page scrolls vertically for whatever no longer fits. A PC-web window
-      // isn't a rotating device, so it keeps using its raw width/height as-is.
-      const [w, h] = deviceType === 'ipad'
-        ? [Math.min(window.innerWidth, window.innerHeight), Math.max(window.innerWidth, window.innerHeight)]
-        : [window.innerWidth, window.innerHeight];
-      const heightScale = (h - 24) / naturalHeight;
-      const widthScale = (w - 24) / naturalWidth;
-      setCardScale(Math.max(1, Math.min(heightScale, widthScale, 2.2)));
-      setCardNatural({ width: naturalWidth, height: naturalHeight });
-    };
-    compute();
-    const ro = new ResizeObserver(compute);
-    ro.observe(el);
-    window.addEventListener('resize', compute);
-    return () => { ro.disconnect(); window.removeEventListener('resize', compute); };
-  }, [isLargeScreen, deviceType]);
+  const { scale: cardScale, natural: cardNatural } = useSecondaryPageScale(cardRef);
 
   return (
     <div
@@ -112,7 +79,18 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
         <div
           ref={cardRef}
           className={`w-full ${cardMaxWidthClass} bg-black/40 border border-white/10 rounded-2xl px-4 py-3 shadow-2xl relative z-10 backdrop-blur-md`}
-          style={{ transform: `scale(${cardScale})`, transformOrigin: 'top left' }}
+          style={{
+            // Once measured, the card's width is pinned to a fixed px value rather than left as
+            // `w-full` of the spacer — otherwise, whenever scale can go below 1 (iPhone 11/iPad
+            // mini), the spacer becomes narrower than max-w-md, which squeezes the card via
+            // w-full, which wraps its text onto more lines, which grows the measured height,
+            // which lowers the scale further, which narrows the spacer more — a runaway
+            // feedback loop. A fixed px width makes the card's own layout immune to its
+            // parent's size, so only the transform (not layout) responds to scale changes.
+            width: cardNatural.width > 0 ? cardNatural.width : undefined,
+            transform: `scale(${cardScale})`,
+            transformOrigin: 'top left',
+          }}
         >
 
         {/* Calligraphy logo, title, and Liang Game logo — one row */}
