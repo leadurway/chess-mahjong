@@ -114,9 +114,10 @@ export function useGameFitScale(refWidth: number, refHeight: number, active: boo
 //     (`[min(w,h), max(w,h)]`) with a floor of 1 (never shrinks) — this is the already-shipped,
 //     already-verified GameSettings behavior for iPad, preserved as-is; landscape's shortfall is
 //     absorbed by the caller's own scroll mechanism.
-//   iPad secondary (mini): genuine contain-fit against the real, orientation-aware viewport, no
-//     floor — a mini is ~9% smaller than a full iPad in both dimensions, so it must be allowed to
-//     shrink to actually fit, unlike the primary-iPad case above.
+//   iPad secondary (mini): ALSO locked to its own portrait dimensions regardless of actual
+//     orientation (mini-landscape reuses mini-portrait's settings, scrollable for the shortfall —
+//     same pattern as the primary-iPad case above, just with no floor, since a mini is ~9%
+//     smaller than a full iPad and must be allowed to genuinely shrink to fit).
 //   pcweb: genuine contain-fit against the real, orientation-aware viewport, floor of 1 (already-
 //     shipped behavior — an arbitrary desktop window is usually bigger than the phone-tuned
 //     card, so this only ever upscales in practice, but the floor is kept for parity with the
@@ -147,17 +148,20 @@ export function useSecondaryPageScale(cardRef: RefObject<HTMLElement | null>): {
       if (naturalWidth === 0 || naturalHeight === 0) return;
 
       let w: number, h: number, floor: number;
-      if (deviceType === 'ipad' && !isSecondaryTier) {
-        // full-size iPad: lock to portrait proportions regardless of actual orientation
+      if (deviceType === 'ipad') {
+        // iPad (full-size or mini): lock to portrait proportions regardless of actual
+        // orientation — landscape reuses portrait's own settings, scrollable for the shortfall.
+        // Only the floor differs: a full iPad never shrinks below its natural size; a mini is
+        // smaller than the full-iPad-tuned card and must be allowed to.
         w = Math.min(window.innerWidth, window.innerHeight);
         h = Math.max(window.innerWidth, window.innerHeight);
-        floor = 1;
+        floor = isSecondaryTier ? 0 : 1;
       } else if (deviceType === 'pcweb') {
         w = window.innerWidth;
         h = window.innerHeight;
         floor = 1;
       } else {
-        // iPhone-secondary (11) or iPad-secondary (mini): real, orientation-aware viewport, no floor
+        // iPhone-secondary (11): real, orientation-aware viewport, no floor
         w = window.innerWidth;
         h = window.innerHeight;
         floor = 0;
