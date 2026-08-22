@@ -100,6 +100,36 @@ export function useGameFitScale(refWidth: number, refHeight: number, active: boo
   return active ? scale : 1;
 }
 
+// Safety-net correction for the game page: some of the game board's rows have a fixed pixel
+// budget (tile size × row count) tuned against an assumed reference device size — on a real
+// device whose exact dimensions differ even slightly (a different iPad model, a shorter real
+// viewport once the browser's own chrome is accounted for), that fixed budget can genuinely
+// overflow its container, clipping whatever's at the bottom. This measures the rendered
+// element's own scrollHeight/scrollWidth (which still reports the true, un-clipped content
+// extent even under `overflow-hidden`) against its clientHeight/clientWidth and returns a
+// SHRINK-ONLY correction (never > 1, so it's a no-op whenever content already fits) meant to be
+// multiplied into the outer fit-scale.
+export function useSelfFitCorrection(elRef: RefObject<HTMLElement | null>, active: boolean): number {
+  const [correction, setCorrection] = useState(1);
+  useEffect(() => {
+    if (!active) return;
+    const el = elRef.current;
+    if (!el) return;
+    const compute = () => {
+      if (el.clientHeight === 0 || el.clientWidth === 0) return;
+      const heightRatio = el.clientHeight / el.scrollHeight;
+      const widthRatio = el.clientWidth / el.scrollWidth;
+      setCorrection(Math.min(1, heightRatio, widthRatio));
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    window.addEventListener('resize', compute);
+    return () => { ro.disconnect(); window.removeEventListener('resize', compute); };
+  }, [active, elRef]);
+  return active ? correction : 1;
+}
+
 // Shared scale computation for secondary pages (GameSettings/WinModal/RuleGuide): measures a
 // card element's own natural (unscaled) size via offsetWidth/offsetHeight — unaffected by the
 // transform the caller applies, so safe to re-measure without any feedback loop — then compares

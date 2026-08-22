@@ -29,6 +29,7 @@ import {
   useDeviceType,
   useIsSecondaryScreenTier,
   useGameFitScale,
+  useSelfFitCorrection,
   IPHONE_REFERENCE,
   IPAD_REFERENCE,
 } from '../hooks/useResponsive';
@@ -71,18 +72,27 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const isLandscape = useIsLandscape();
   const isLargeScreen = useIsLargeScreen();
   // Secondary-resolution devices (iPhone 11 / iPad mini / PC web landscape) reuse the primary
-  // reference device's (iPhone 14 Pro / iPad) already-tuned layout, scaled to fit — iPhone 14
-  // Pro landscape and iPad landscape themselves (the two "don't touch" reference cases) are
-  // deliberately excluded so their rendering is byte-for-byte identical to before this existed.
+  // reference device's (iPhone 14 Pro / iPad) already-tuned layout, scaled to fit. iPhone 14 Pro
+  // itself is deliberately excluded (both orientations) so its rendering stays byte-for-byte
+  // identical. iPad is scaled unconditionally (both tiers, both orientations) — its fixed-pixel
+  // row budget was found to genuinely overflow the real device's available height in some
+  // states, clipping the bottom info rows; wrapping it in the same fit-scale mechanism, combined
+  // with the self-overflow correction below, fixes that instead of leaving iPad fully untouched.
   const deviceType = useDeviceType();
   const isSecondaryScreenTier = useIsSecondaryScreenTier();
   const needsGameScale =
     (deviceType === 'iphone' && isSecondaryScreenTier) ||
-    (deviceType === 'ipad' && isSecondaryScreenTier) ||
+    deviceType === 'ipad' ||
     (deviceType === 'pcweb' && isLandscape);
   const gameReference = deviceType === 'iphone' ? IPHONE_REFERENCE : IPAD_REFERENCE;
   const { width: gameRefWidth, height: gameRefHeight } = isLandscape ? gameReference.landscape : gameReference.portrait;
-  const gameFitScale = useGameFitScale(gameRefWidth, gameRefHeight, needsGameScale);
+  const gameOuterFitScale = useGameFitScale(gameRefWidth, gameRefHeight, needsGameScale);
+  // Shrink-only safety net: even at the correct reference canvas size, the board's own fixed-
+  // pixel row budget can still exceed its box on a real device — this measures that directly
+  // (see useSelfFitCorrection) and is a no-op (1) whenever nothing actually overflows.
+  const gameBoardRef = useRef<HTMLDivElement>(null);
+  const gameSelfFitCorrection = useSelfFitCorrection(gameBoardRef, needsGameScale);
+  const gameFitScale = gameOuterFitScale * gameSelfFitCorrection;
   const logEndRef = useRef<HTMLDivElement>(null);
   const confirmExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Measures the discard row's own available width on large screens (iPad/desktop, both
@@ -1174,9 +1184,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // landscape) `needsGameScale` is always false, so the final return below is just these two
   // pieces concatenated in a Fragment — byte-for-byte the same DOM as before this existed.
   const gameBoard = (
-    <div className={needsGameScale
-      ? "h-full flex flex-col bg-[#064e3b] text-white overflow-hidden font-sans antialiased"
-      : "h-[100dvh] flex flex-col bg-[#064e3b] text-white overflow-hidden font-sans antialiased"}>
+    <div
+      ref={gameBoardRef}
+      className={needsGameScale
+        ? "h-full flex flex-col bg-[#064e3b] text-white overflow-hidden font-sans antialiased"
+        : "h-[100dvh] flex flex-col bg-[#064e3b] text-white overflow-hidden font-sans antialiased"}
+    >
 
       {/* ── HEADER ── */}
       <header
