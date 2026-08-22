@@ -130,7 +130,36 @@ export function useSelfFitCorrection(elRef: RefObject<HTMLElement | null>, activ
   return active ? correction : 1;
 }
 
-// Shared scale computation for secondary pages (GameSettings/WinModal/RuleGuide): measures a
+// Width-only fit scale for "long scrollable document" secondary pages (RuleGuide): unlike
+// GameSettings/WinModal's compact single-screen card, a rules document is MEANT to be taller
+// than the viewport and scroll — so height must never factor into its scale (feeding a document's
+// full, un-clamped scrollHeight into a height-constrained fit, as useSecondaryPageScale below
+// does, drags the scale down to a tiny fraction to make the whole thing fit vertically, which is
+// wrong here). This only ever fits the card's natural WIDTH to the available viewport width, so
+// it reads as large as it can regardless of how tall the content ends up being; the caller is
+// still responsible for its own overflow-y-auto/dynamic max-height to make that height scrollable.
+export function useWidthFitScale(cardRef: RefObject<HTMLElement | null>): number {
+  const isLargeScreen = useIsLargeScreen();
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    if (!isLargeScreen) { setScale(1); return; }
+    const el = cardRef.current;
+    if (!el) return;
+    const compute = () => {
+      const naturalWidth = el.offsetWidth;
+      if (naturalWidth === 0) return;
+      setScale(Math.min((window.innerWidth - 24) / naturalWidth, 2.2));
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    window.addEventListener('resize', compute);
+    return () => { ro.disconnect(); window.removeEventListener('resize', compute); };
+  }, [isLargeScreen, cardRef]);
+  return isLargeScreen ? scale : 1;
+}
+
+// Shared scale computation for secondary pages (GameSettings/WinModal): measures a
 // card element's own natural (unscaled) size via offsetWidth/offsetHeight — unaffected by the
 // transform the caller applies, so safe to re-measure without any feedback loop — then compares
 // it against the available space according to this device's tier:

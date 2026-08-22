@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { ChessTile } from './ChessTile';
 import { Tile } from '../types';
-import { useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
+import { useIsLargeScreen, useWidthFitScale } from '../hooks/useResponsive';
 
 interface RuleGuideProps {
   onClose?: () => void;
@@ -26,14 +26,16 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
   const subHeadingClass = isLargeScreen ? 'text-xl' : 'text-sm';
   const tableCellPadClass = isLargeScreen ? 'px-6 py-4' : 'px-4 py-3';
 
-  // Card scale per device tier (see useSecondaryPageScale). The card's own max-height must be
-  // computed in the UNSCALED coordinate space (transform doesn't feed back into layout/height,
-  // so a fixed "85dvh" cap combined with an extra upscale would visually exceed the viewport
-  // with no way to reach the excess) — dividing by scale keeps the VISUAL result capped at 85%
-  // of the viewport regardless of scale, while the card's own overflow-y-auto (unchanged from
-  // before) keeps handling the actual scrolling, exactly as it always has.
+  // Width-only fit (see useWidthFitScale) — this is a long scrollable document, not a
+  // single-screen card, so height must never shrink the scale (that was the bug: feeding this
+  // page's full, un-clamped content height into a height-constrained fit made it render tiny on
+  // iPad mini). The card's own max-height must still be computed in the UNSCALED coordinate
+  // space (transform doesn't feed back into layout/height, so a fixed "85dvh" cap combined with
+  // an extra upscale would visually exceed the viewport with no way to reach the excess) —
+  // dividing by scale keeps the VISUAL result capped at 85% of the viewport regardless of scale,
+  // while the card's own overflow-y-auto (unchanged) keeps handling the actual scrolling.
   const cardRef = useRef<HTMLDivElement>(null);
-  const { scale } = useSecondaryPageScale(cardRef);
+  const scale = useWidthFitScale(cardRef);
   const maxHeightPx = (typeof window !== 'undefined' ? window.innerHeight * 0.85 : 900) / scale;
 
   // Mock tiles for demo sequences
