@@ -937,7 +937,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const avatarTextClass = minTextClass;
   const scoreTextClass = isLargeScreen ? 'text-3xl' : 'text-base';
   const bankerTextClass = minTextClass;
-  const hintTextClass = isLargeScreen ? 'text-[26px]' : 'text-base';
+  const hintTextClass = minTextClass;
   const logoSizeClass = isLargeScreen ? 'w-16 h-16' : 'w-9 h-9';
 
   const renderMeldGroup = (meld: Meld, keyPrefix: string, mIdx: number) => (
