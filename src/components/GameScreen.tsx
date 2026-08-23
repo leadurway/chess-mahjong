@@ -1126,13 +1126,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       className="absolute top-full left-0 right-0 z-30 bg-stone-950 border-t border-amber-500/30 shadow-2xl"
     >
       <div
-        className="px-3 py-2 grid grid-cols-2 gap-2"
+        className={isLandscape ? 'px-3 py-2 flex gap-2' : 'px-3 py-2 grid grid-cols-2 gap-2'}
         style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       >
         {gameState.phase === 'showMeldSelect' && interrupts.canEat && (
           <button
             onClick={handlePlayerEat}
-            className={`${bigBtnClass} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
+            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
           >
             吃牌
           </button>
@@ -1140,7 +1140,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         {gameState.phase === 'showMeldSelect' && interrupts.canPong && (
           <button
             onClick={handlePlayerPong}
-            className={`${bigBtnClass} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
+            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
           >
             碰牌
           </button>
@@ -1148,7 +1148,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         {gameState.phase === 'showMeldSelect' && interrupts.canKong && (
           <button
             onClick={handlePlayerKong}
-            className={`${bigBtnClass} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
+            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
           >
             槓牌
           </button>
@@ -1156,7 +1156,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         {selfKongOptions.length > 0 && (
           <button
             onClick={handlePlayerSelfKong}
-            className={`${bigBtnClass} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
+            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
           >
             {selfKongOptions[0].isUpgrade ? '補槓' : '暗槓'}
           </button>
@@ -1164,7 +1164,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         {((gameState.phase === 'showMeldSelect' && interrupts.canWin) || isSelfDrawWinAvailable) && (
           <button
             onClick={handlePlayerDeclareWin}
-            className={`${bigBtnClass} rounded-2xl bg-red-600 text-white font-black font-serif shadow-[0_0_16px_4px_rgba(220,38,38,0.65)] ring-2 ring-red-300 active:scale-95 transition`}
+            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-red-600 text-white font-black font-serif shadow-[0_0_16px_4px_rgba(220,38,38,0.65)] ring-2 ring-red-300 active:scale-95 transition`}
           >
             🔥 胡牌！
           </button>
@@ -1175,7 +1175,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
               if (gameState.phase === 'showMeldSelect') handlePlayerPass();
               else setOwnTurnOfferDismissed(true);
             }}
-            className={`${bigBtnClass} rounded-2xl bg-stone-600 text-white font-black font-serif shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400 active:scale-95 transition`}
+            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-stone-600 text-white font-black font-serif shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400 active:scale-95 transition`}
           >
             過
           </button>
