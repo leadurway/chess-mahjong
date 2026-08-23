@@ -1035,20 +1035,20 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const largeScreenDiscardGridWidthPx = largeScreenDiscardMaxPerRow * HAND_TILE_PX + (largeScreenDiscardMaxPerRow - 1) * HAND_GAP_PX;
 
   const aiAvatarName = (
-    <div className="flex flex-col gap-0.5 shrink-0">
-      <div className="flex items-center gap-2">
-        <div className={`${avatarSizeClass} rounded-full bg-red-600 border border-white/50 flex items-center justify-center ${avatarTextClass} font-bold shrink-0`}>
-          AI
-        </div>
+    <div className="flex items-center gap-2 shrink-0">
+      <div className={`${avatarSizeClass} rounded-full bg-red-600 border border-white/50 flex items-center justify-center ${avatarTextClass} font-bold shrink-0`}>
+        AI
+      </div>
+      <div className="flex flex-col gap-0.5">
         <span className={`${nameTextClass} font-bold font-serif leading-none whitespace-nowrap`}>
           電腦<span className="text-amber-300 capitalize">{gameState.difficulty}</span>
         </span>
+        {gameState.ai.isBanker && (
+          <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
+            👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '莊家'}
+          </span>
+        )}
       </div>
-      {gameState.ai.isBanker && (
-        <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
-          👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '莊家'}
-        </span>
-      )}
     </div>
   );
 
@@ -1070,18 +1070,18 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   );
 
   const playerAvatarName = (
-    <div className="flex flex-col gap-0.5 shrink-0">
-      <div className="flex items-center gap-2">
-        <div className={`${avatarSizeClass} rounded-full bg-amber-500 border border-white/50 flex items-center justify-center ${avatarTextClass} font-bold text-[#064e3b] shrink-0`}>
-          你
-        </div>
-        <span className={`${nameTextClass} font-bold font-serif leading-none whitespace-nowrap`}>{playerName}</span>
+    <div className="flex items-center gap-2 shrink-0">
+      <div className={`${avatarSizeClass} rounded-full bg-amber-500 border border-white/50 flex items-center justify-center ${avatarTextClass} font-bold text-[#064e3b] shrink-0`}>
+        你
       </div>
-      {gameState.player.isBanker && (
-        <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
-          👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '莊家'}
-        </span>
-      )}
+      <div className="flex flex-col gap-0.5">
+        <span className={`${nameTextClass} font-bold font-serif leading-none whitespace-nowrap`}>{playerName}</span>
+        {gameState.player.isBanker && (
+          <span className={`${bankerTextClass} text-amber-300 font-mono whitespace-nowrap`}>
+            👑{gameState.dealerStreak > 1 ? `莊連${gameState.dealerStreak - 1}` : '莊家'}
+          </span>
+        )}
+      </div>
     </div>
   );
 
