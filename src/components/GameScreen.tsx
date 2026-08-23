@@ -927,10 +927,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const bigBtnClass = isLargeScreen ? 'h-24 text-3xl' : 'h-16 text-xl';
   const headerIconSize = isLargeScreen ? 30 : 15;
   const avatarSizeClass = isLargeScreen ? 'w-14 h-14' : 'w-8 h-8';
-  const nameTextClass = isLargeScreen ? 'text-2xl' : 'text-sm';
-  // No piece of text on this page may end up smaller than the "象棋麻將" title (nameTextClass,
-  // 14px/24px) — several elements (avatar label, banker tag, the game-log sheet) previously sat
-  // below that, some not even scaled by device at all. minTextClass is a shared floor equal to
+  // Designed for older players: nothing on this page may render under 15px. nameTextClass (the
+  // "象棋麻將" title/names) was 14px on iPhone — bumped to the 15px floor.
+  const nameTextClass = isLargeScreen ? 'text-2xl' : 'text-[15px]';
+  // Several elements (avatar label, banker tag, the game-log sheet) previously sat under the
+  // title's size, some not even scaled by device at all. minTextClass is a shared floor equal to
   // the title's own size, used wherever a class would otherwise land under it.
   const minTextClass = nameTextClass;
   const avatarTextClass = minTextClass;
@@ -1212,7 +1213,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             className={`p-2 rounded-xl transition ${
               confirmExit
                 ? 'bg-red-600 text-white shadow-[0_0_12px_3px_rgba(220,38,38,0.6)] animate-pulse'
-                : 'text-white/70 hover:text-white hover:bg-white/10'
+                : 'text-white/90 hover:text-white hover:bg-white/10'
             }`}
           >
             <LogOut size={headerIconSize} className="rotate-180" />
@@ -1425,7 +1426,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             className={`flex-1 ${bigBtnClass} rounded-2xl font-bold font-serif transition-colors flex items-center justify-center ${
               canDiscard
                 ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
-                : 'bg-stone-800/60 text-stone-500'
+                : 'bg-stone-800/60 text-stone-200'
             }`}
           >
             👉 打出這張牌
@@ -1439,7 +1440,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             className={`flex-1 ${bigBtnClass} rounded-2xl font-bold font-serif transition-colors flex items-center justify-center gap-2 ${
               canDraw
                 ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
-                : 'bg-stone-800/60 text-stone-500'
+                : 'bg-stone-800/60 text-stone-200'
             }`}
           >
             <span>🀄 摸牌</span>
@@ -1508,7 +1509,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   <ScrollText size={16} />
                   即時局誌
                 </h2>
-                <button onClick={() => setShowLog(false)} className="p-1.5 text-stone-400 hover:text-white">
+                <button onClick={() => setShowLog(false)} className="p-1.5 text-stone-200 hover:text-white">
                   <X size={18} />
                 </button>
               </div>
@@ -1524,10 +1525,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                           ? 'bg-amber-950/40 border-amber-800/40 text-amber-300 font-bold'
                           : isAlert
                             ? 'bg-red-950/20 border-red-900/30 text-rose-300'
-                            : 'bg-stone-800/60 border-stone-700/50 text-stone-300'
+                            : 'bg-stone-800/60 border-stone-700/50 text-stone-200'
                       }`}
                     >
-                      <div className={`${minTextClass} text-stone-500 mb-0.5 font-mono`}>#{index + 1}</div>
+                      <div className={`${minTextClass} text-stone-200 mb-0.5 font-mono`}>#{index + 1}</div>
                       {log}
                     </div>
                   );
@@ -1535,7 +1536,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 <div ref={logEndRef} />
               </div>
               <div className="px-4 pt-2 pb-5 shrink-0 border-t border-stone-800">
-                <div className={`bg-stone-950 px-3 py-2 rounded-xl border border-stone-800 ${minTextClass} text-stone-400 flex items-center gap-2`}>
+                <div className={`bg-stone-950 px-3 py-2 rounded-xl border border-stone-800 ${minTextClass} text-stone-200 flex items-center gap-2`}>
                   <Info size={11} className="text-amber-500 shrink-0" />
                   牌牆剩 0 張時，本局以流局結算。
                 </div>

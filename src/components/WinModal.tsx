@@ -155,15 +155,18 @@ export const WinModal: React.FC<WinModalProps> = ({
   const isLargeScreen = useIsLargeScreen();
   const cardMaxWidthClass = isLargeScreen ? 'max-w-2xl' : 'max-w-md';
   const cardPaddingClass = isLargeScreen ? 'p-6' : 'p-3';
-  const labelTextClass = isLargeScreen ? 'text-sm' : 'text-[10px]';
+  // Designed for older players: nothing on this page may render under 15px — several of these
+  // (labelTextClass, winSubTextClass, fanHeadingClass, fanListTextClass) previously sat below
+  // that on iPhone, and labelTextClass was under it on large screens too.
+  const labelTextClass = isLargeScreen ? 'text-xl' : 'text-[15px]';
   const handBleedClass = isLargeScreen ? '-mx-6' : '-mx-3';
   const boxHeightClass = isLargeScreen ? 'h-[120px]' : 'h-[86px]';
   const winTextClass = isLargeScreen ? 'text-5xl' : 'text-3xl';
-  const winSubTextClass = isLargeScreen ? 'text-xl' : 'text-sm';
+  const winSubTextClass = isLargeScreen ? 'text-xl' : 'text-[15px]';
   const fanBoxPaddingClass = isLargeScreen ? 'p-6' : 'p-4';
-  const fanHeadingClass = isLargeScreen ? 'text-xl' : 'text-sm';
+  const fanHeadingClass = isLargeScreen ? 'text-xl' : 'text-[15px]';
   const fanTotalClass = isLargeScreen ? 'text-3xl' : 'text-xl';
-  const fanListTextClass = isLargeScreen ? 'text-lg' : 'text-xs';
+  const fanListTextClass = isLargeScreen ? 'text-lg' : 'text-[15px]';
   const fanListMaxHeightClass = isLargeScreen ? 'max-h-48' : 'max-h-32';
 
   // Card scale per device tier (see useSecondaryPageScale). Its own max-height must be computed
@@ -235,7 +238,7 @@ export const WinModal: React.FC<WinModalProps> = ({
             missing tile leaving an empty slot on the right. */}
         <div className="space-y-3 mb-4">
           <div ref={aiHandRowRef}>
-            <span className={`${labelTextClass} text-stone-500 uppercase font-semibold block mb-1`}>🤖 電腦手牌</span>
+            <span className={`${labelTextClass} text-stone-200 uppercase font-semibold block mb-1`}>🤖 電腦手牌</span>
             <div
               className={`${handBleedClass} grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800`}
               style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
@@ -246,7 +249,7 @@ export const WinModal: React.FC<WinModalProps> = ({
             </div>
           </div>
           <div ref={playerHandRowRef}>
-            <span className={`${labelTextClass} text-stone-500 uppercase font-semibold block mb-1`}>👤 玩家手牌</span>
+            <span className={`${labelTextClass} text-stone-200 uppercase font-semibold block mb-1`}>👤 玩家手牌</span>
             <div
               className={`${handBleedClass} grid gap-0.5 bg-stone-950 p-1 border-y border-stone-800`}
               style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
@@ -277,12 +280,12 @@ export const WinModal: React.FC<WinModalProps> = ({
           <div className={`divide-y divide-stone-800 ${fanListTextClass} ${fanListMaxHeightClass} overflow-y-auto`}>
             {fans.map((fan, index) => (
               <div key={`fan_${index}`} className="py-2 flex justify-between items-center">
-                <span className="text-stone-300 font-medium">{fan.name}</span>
+                <span className="text-stone-200 font-medium">{fan.name}</span>
                 <span className="text-amber-500 font-bold font-mono">+{fan.value} 台</span>
               </div>
             ))}
             {fans.length === 0 && (
-              <div className="py-3 text-center text-stone-500">無特殊台數組合。</div>
+              <div className="py-3 text-center text-stone-200">無特殊台數組合。</div>
             )}
           </div>
         </div>

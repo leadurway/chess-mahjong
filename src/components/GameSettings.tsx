@@ -11,7 +11,7 @@ interface GameSettingsProps {
 
 const SELECTED_BTN =
   'bg-yellow-400 border-yellow-200 text-black font-black shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200';
-const UNSELECTED_BTN = 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80';
+const UNSELECTED_BTN = 'bg-white/5 hover:bg-white/10 border-white/10 text-white/95';
 
 export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
   const [mode, setMode] = useState<GameMode>(56);
@@ -37,10 +37,11 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
   const titleTextClass = 'text-2xl';
   const sectionPadClass = 'p-3';
   const labelTextClass = 'text-base';
-  const bodyTextClass = 'text-sm';
+  // Designed for older players: nothing on this page should render under 15px.
+  const bodyTextClass = 'text-[15px]';
   const inputClass = 'px-3 py-2 text-base';
   const modeBtnClass = 'py-2 px-1 text-base';
-  const modeSubTextClass = 'text-sm';
+  const modeSubTextClass = 'text-[15px]';
   const choiceBtnClass = 'py-2 text-base';
   const startBtnClass = 'py-4 text-xl';
   const rulesBtnClass = 'text-base py-1.5';
@@ -123,9 +124,9 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
               onChange={(e) => handleNameChange(e.target.value)}
               maxLength={12}
               placeholder="輸入你的名稱"
-              className={`w-full bg-white/10 border border-white/20 rounded-xl ${inputClass} text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400`}
+              className={`w-full bg-white/10 border border-white/20 rounded-xl ${inputClass} text-white placeholder:text-white/70 focus:outline-none focus:ring-2 focus:ring-amber-400`}
             />
-            <p className={`text-white/70 ${bodyTextClass} mt-2`}>
+            <p className={`text-white/90 ${bodyTextClass} mt-2`}>
               目前積分：<span className="text-amber-300 font-mono font-bold">{profile.score.toLocaleString()}</span>
             </p>
           </div>
@@ -163,7 +164,7 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
                 <span className={`block ${modeSubTextClass} opacity-90 font-normal`}>兩副完整棋</span>
               </button>
             </div>
-            <p className={`text-white/70 ${bodyTextClass} mt-2 leading-snug`}>
+            <p className={`text-white/90 ${bodyTextClass} mt-2 leading-snug`}>
               {mode === 32 && '💡 32子：莊家起手 5 張，閒家 4 張。1組面子＋1個對子或特殊「五兵（卒）」組合即可勝利。'}
               {mode === 56 && '💡 56子：每種牌面各 4 張。莊家起手 8 張，閒家 7 張。兩面子＋一對子或「四對組」胡牌。'}
               {mode === 64 && '💡 64子：完整兩副象棋。莊家起手 8 張，閒家 7 張。多卡高重合，碰牌快意對決。'}
