@@ -952,6 +952,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // (5 for 32-tile, 8 for 56/64-tile — the maximum concealed+exposed tile count in play at
   // once), so the frame itself never resizes; a newly drawn tile just fills the next empty
   // slot on the right instead of the whole row re-centering.
+  // On phone (44px tiles, 8 slots for 56/64-tile mode), this frame is 380px — the hand and
+  // discard rows' own horizontal padding must together be ≤12px per side (i.e. no more than
+  // px-1's 4px, given the 393px reference canvas width) or the frame is wider than the padded
+  // content box, which used to be silently absorbed by however each row centered it (see the
+  // discard-row fix elsewhere in this file for why that discrepancy mattered).
   const HAND_TILE_PX = isLargeScreen ? 88 : 44;
   const HAND_GAP_PX = isLargeScreen ? 8 : 4;
   const handSlotCount = gameState.mode === 32 ? 5 : 8;
@@ -1261,7 +1266,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             {aiAvatarName}
             {aiScore}
           </div>
-          <div className="shrink-0 w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10 flex justify-center overflow-x-auto">
+          <div className="shrink-0 w-full px-1 py-2 bg-[#054131]/40 border-b border-emerald-500/10 flex justify-center overflow-x-auto">
             {aiHandMeldFrame}
           </div>
         </>
@@ -1270,7 +1275,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── AI DISCARDS ── */}
       <div
         ref={isLargeScreen ? largeScreenDiscardRowRef : undefined}
-        className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5 flex justify-center'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
+        className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-1 py-1.5 flex justify-center'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
         style={
           isLargeScreen
             ? { height: `${discardAreaFixedHeightPx}px` }
@@ -1327,7 +1332,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── PLAYER DISCARDS ── */}
       <div
-        className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5 flex justify-center'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
+        className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-1 py-1.5 flex justify-center'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
         style={
           isLargeScreen
             ? { height: `${discardAreaFixedHeightPx}px` }
@@ -1382,7 +1387,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             {playerScore}
           </div>
         ) : (
-          <div className="w-full px-2 py-2 bg-[#054131]/40 border-b border-emerald-500/10 flex justify-center overflow-x-auto">
+          <div className="w-full px-1 py-2 bg-[#054131]/40 border-b border-emerald-500/10 flex justify-center overflow-x-auto">
             {playerHandMeldFrame}
           </div>
         )}
