@@ -927,11 +927,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const bigBtnClass = isLargeScreen ? 'h-24 text-3xl' : 'h-16 text-xl';
   const headerIconSize = isLargeScreen ? 30 : 15;
   const avatarSizeClass = isLargeScreen ? 'w-14 h-14' : 'w-8 h-8';
-  const avatarTextClass = isLargeScreen ? 'text-xl' : 'text-xs';
   const nameTextClass = isLargeScreen ? 'text-2xl' : 'text-sm';
+  // No piece of text on this page may end up smaller than the "象棋麻將" title (nameTextClass,
+  // 14px/24px) — several elements (avatar label, banker tag, the game-log sheet) previously sat
+  // at or below that, some not even scaled by device at all. minTextClass is a shared floor, a
+  // couple px above nameTextClass on both tiers, used wherever a class would otherwise land at
+  // or under it.
+  const minTextClass = isLargeScreen ? 'text-[26px]' : 'text-[15px]';
+  const avatarTextClass = minTextClass;
   const scoreTextClass = isLargeScreen ? 'text-3xl' : 'text-base';
-  const bankerTextClass = isLargeScreen ? 'text-2xl' : 'text-sm';
-  const hintTextClass = isLargeScreen ? 'text-2xl' : 'text-base';
+  const bankerTextClass = minTextClass;
+  const hintTextClass = isLargeScreen ? 'text-[26px]' : 'text-base';
   const logoSizeClass = isLargeScreen ? 'w-16 h-16' : 'w-9 h-9';
 
   const renderMeldGroup = (meld: Meld, keyPrefix: string, mIdx: number) => (
@@ -1466,7 +1472,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           </div>
           <button
             onClick={() => setShowLog(true)}
-            className="flex items-center gap-1 text-xs text-amber-300 bg-black/30 px-2 py-1 rounded-lg border border-white/10 shrink-0"
+            className={`flex items-center gap-1 ${minTextClass} text-amber-300 bg-black/30 px-2 py-1 rounded-lg border border-white/10 shrink-0`}
           >
             <ScrollText size={12} />
             局誌
@@ -1514,7 +1520,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   return (
                     <div
                       key={`log_${index}`}
-                      className={`px-3 py-2 rounded-xl border text-xs leading-relaxed ${
+                      className={`px-3 py-2 rounded-xl border ${minTextClass} leading-relaxed ${
                         isWin
                           ? 'bg-amber-950/40 border-amber-800/40 text-amber-300 font-bold'
                           : isAlert
@@ -1522,7 +1528,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                             : 'bg-stone-800/60 border-stone-700/50 text-stone-300'
                       }`}
                     >
-                      <div className="text-[9px] text-stone-500 mb-0.5 font-mono">#{index + 1}</div>
+                      <div className={`${minTextClass} text-stone-500 mb-0.5 font-mono`}>#{index + 1}</div>
                       {log}
                     </div>
                   );
@@ -1530,7 +1536,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                 <div ref={logEndRef} />
               </div>
               <div className="px-4 pt-2 pb-5 shrink-0 border-t border-stone-800">
-                <div className="bg-stone-950 px-3 py-2 rounded-xl border border-stone-800 text-[10px] text-stone-400 flex items-center gap-2">
+                <div className={`bg-stone-950 px-3 py-2 rounded-xl border border-stone-800 ${minTextClass} text-stone-400 flex items-center gap-2`}>
                   <Info size={11} className="text-amber-500 shrink-0" />
                   牌牆剩 0 張時，本局以流局結算。
                 </div>

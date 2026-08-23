@@ -15,15 +15,20 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
   const demoTileSize = isLargeScreen ? 'lg' : 'sm';
   const rootPadClass = isLargeScreen ? 'p-10' : 'p-6';
   const rootMaxWidthClass = isLargeScreen ? 'max-w-6xl' : 'max-w-4xl';
+  // No text on this page may end up smaller than the game page's "象棋麻將" title (14px/24px on
+  // iPhone/large screen) — several of these previously sat at or under that (smallTextClass,
+  // subHeadingClass, and closeBtnClass's iPhone side had no explicit size at all). Rebuilt as a
+  // strictly increasing ladder — small < body < subheading < sectionheading < title — with the
+  // smallest step (smallTextClass) still a couple px clear of the title's size on both tiers.
   const headerTitleClass = isLargeScreen ? 'text-4xl' : 'text-2xl';
-  const closeBtnClass = isLargeScreen ? 'px-5 py-2 text-xl' : 'px-3 py-1';
-  const sectionHeadingClass = isLargeScreen ? 'text-2xl' : 'text-lg';
-  const bodyTextClass = isLargeScreen ? 'text-lg' : 'text-sm';
+  const sectionHeadingClass = isLargeScreen ? 'text-[32px]' : 'text-[21px]';
+  const subHeadingClass = isLargeScreen ? 'text-3xl' : 'text-[19px]';
+  const bodyTextClass = isLargeScreen ? 'text-[28px]' : 'text-[17px]';
+  const smallTextClass = isLargeScreen ? 'text-[26px]' : 'text-[15px]';
+  const closeBtnClass = isLargeScreen ? `px-5 py-2 ${bodyTextClass}` : `px-3 py-1 ${bodyTextClass}`;
   const cardPadClass = isLargeScreen ? 'p-6' : 'p-4';
-  const smallTextClass = isLargeScreen ? 'text-base' : 'text-xs';
   const gridColsClass = isLargeScreen ? 'grid-cols-2' : 'grid-cols-1';
   const colSpan2Class = isLargeScreen ? 'col-span-2' : '';
-  const subHeadingClass = isLargeScreen ? 'text-xl' : 'text-sm';
   const tableCellPadClass = isLargeScreen ? 'px-6 py-4' : 'px-4 py-3';
 
   // Width-only fit (see useWidthFitScale) — this is a long scrollable document, not a
@@ -64,14 +69,14 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
       className={`bg-stone-900/95 text-stone-100 ${rootPadClass} rounded-2xl border border-amber-500/20 ${rootMaxWidthClass} w-full mx-auto shadow-2xl overflow-y-auto scrollbar-thin scrollbar-thumb-stone-700`}
       style={{ maxHeight: `${maxHeightPx}px`, transform: `scale(${scale})` }}
     >
-      <div className="flex justify-between items-center mb-6 border-b border-amber-500/20 pb-4">
+      <div className="flex justify-between items-start gap-3 mb-6 border-b border-amber-500/20 pb-4">
         <h2 className={`${headerTitleClass} font-bold font-serif text-amber-400 flex items-center gap-2`}>
           🀄 象棋麻將 遊戲規則說明
         </h2>
         {onClose && (
           <button
             onClick={onClose}
-            className={`text-stone-400 hover:text-white bg-stone-800 hover:bg-stone-700 font-bold ${closeBtnClass} rounded-lg transition`}
+            className={`text-stone-400 hover:text-white bg-stone-800 hover:bg-stone-700 font-bold ${closeBtnClass} rounded-lg transition whitespace-nowrap shrink-0`}
           >
             關閉
           </button>
@@ -197,7 +202,7 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
           </p>
 
           <h4 className={`text-amber-300/90 font-semibold mb-2 font-serif ${subHeadingClass}`}>32 子型（經典傳統，1組面子＋1對眼睛）</h4>
-          <div className="bg-stone-800 rounded-xl overflow-hidden border border-stone-700 mb-6">
+          <div className="bg-stone-800 rounded-xl overflow-x-auto border border-stone-700 mb-6">
             <table className={`min-w-full ${smallTextClass} text-left text-stone-300`}>
               <thead className="bg-stone-750 text-amber-400 border-b border-stone-700 font-serif">
                 <tr>
@@ -225,7 +230,7 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
             56子型每種棋各 4 張；64子型為兩副完整棋（每色兵/卒各 10 張），因此「五兵合縱／五卒連橫」與「八家將」只有 64
             子型才可能湊到、56子型不會出現。
           </p>
-          <div className="bg-stone-800 rounded-xl overflow-hidden border border-stone-700">
+          <div className="bg-stone-800 rounded-xl overflow-x-auto border border-stone-700">
             <table className={`min-w-full ${smallTextClass} text-left text-stone-300`}>
               <thead className="bg-stone-750 text-amber-400 border-b border-stone-700 font-serif">
                 <tr>
