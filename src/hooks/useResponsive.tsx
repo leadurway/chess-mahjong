@@ -138,11 +138,15 @@ export function useSelfFitCorrection(elRef: RefObject<HTMLElement | null>, activ
 // wrong here). This only ever fits the card's natural WIDTH to the available viewport width, so
 // it reads as large as it can regardless of how tall the content ends up being; the caller is
 // still responsible for its own overflow-y-auto/dynamic max-height to make that height scrollable.
+// Applies to every device tier, iPhone included — this isn't a "reuse the primary reference's
+// tuning" mechanism like useSecondaryPageScale (nothing about a rules document needs protecting
+// as an untouched reference), it's purely "use the available width", which iPhone benefits from
+// just as much: without this, the card sits at its raw padded natural width (max-w-4xl capped by
+// the backdrop's own p-4), leaving iPhone portrait using only ~92% of the screen width while
+// other tiers — already covered by this same formula — reach ~97%.
 export function useWidthFitScale(cardRef: RefObject<HTMLElement | null>): number {
-  const isLargeScreen = useIsLargeScreen();
   const [scale, setScale] = useState(1);
   useEffect(() => {
-    if (!isLargeScreen) { setScale(1); return; }
     const el = cardRef.current;
     if (!el) return;
     const compute = () => {
@@ -155,8 +159,8 @@ export function useWidthFitScale(cardRef: RefObject<HTMLElement | null>): number
     ro.observe(el);
     window.addEventListener('resize', compute);
     return () => { ro.disconnect(); window.removeEventListener('resize', compute); };
-  }, [isLargeScreen, cardRef]);
-  return isLargeScreen ? scale : 1;
+  }, [cardRef]);
+  return scale;
 }
 
 // Shared scale computation for secondary pages (GameSettings/WinModal): measures a
