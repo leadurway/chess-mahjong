@@ -16,15 +16,16 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
   const rootPadClass = isLargeScreen ? 'p-10' : 'p-6';
   const rootMaxWidthClass = isLargeScreen ? 'max-w-6xl' : 'max-w-4xl';
   // No text on this page may end up smaller than the game page's "象棋麻將" title (14px/24px on
-  // iPhone/large screen) — several of these previously sat at or under that (smallTextClass,
-  // subHeadingClass, and closeBtnClass's iPhone side had no explicit size at all). Rebuilt as a
-  // strictly increasing ladder — small < body < subheading < sectionheading < title — with the
-  // smallest step (smallTextClass) still a couple px clear of the title's size on both tiers.
+  // iPhone/large screen) — several of these previously sat under that (smallTextClass,
+  // subHeadingClass, and closeBtnClass's iPhone side had no explicit size at all). Rebuilt as an
+  // increasing ladder — small ≤ body < subheading < sectionheading < title — with the smallest
+  // step (smallTextClass) set exactly equal to the title's own size on both tiers, matching
+  // GameScreen's nameTextClass (text-sm/text-2xl).
   const headerTitleClass = isLargeScreen ? 'text-4xl' : 'text-2xl';
   const sectionHeadingClass = isLargeScreen ? 'text-[32px]' : 'text-[21px]';
   const subHeadingClass = isLargeScreen ? 'text-3xl' : 'text-[19px]';
   const bodyTextClass = isLargeScreen ? 'text-[28px]' : 'text-[17px]';
-  const smallTextClass = isLargeScreen ? 'text-[26px]' : 'text-[15px]';
+  const smallTextClass = isLargeScreen ? 'text-2xl' : 'text-sm';
   const closeBtnClass = isLargeScreen ? `px-5 py-2 ${bodyTextClass}` : `px-3 py-1 ${bodyTextClass}`;
   const cardPadClass = isLargeScreen ? 'p-6' : 'p-4';
   const gridColsClass = isLargeScreen ? 'grid-cols-2' : 'grid-cols-1';

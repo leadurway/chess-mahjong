@@ -930,10 +930,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const nameTextClass = isLargeScreen ? 'text-2xl' : 'text-sm';
   // No piece of text on this page may end up smaller than the "象棋麻將" title (nameTextClass,
   // 14px/24px) — several elements (avatar label, banker tag, the game-log sheet) previously sat
-  // at or below that, some not even scaled by device at all. minTextClass is a shared floor, a
-  // couple px above nameTextClass on both tiers, used wherever a class would otherwise land at
-  // or under it.
-  const minTextClass = isLargeScreen ? 'text-[26px]' : 'text-[15px]';
+  // below that, some not even scaled by device at all. minTextClass is a shared floor equal to
+  // the title's own size, used wherever a class would otherwise land under it.
+  const minTextClass = nameTextClass;
   const avatarTextClass = minTextClass;
   const scoreTextClass = isLargeScreen ? 'text-3xl' : 'text-base';
   const bankerTextClass = minTextClass;
