@@ -1270,7 +1270,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       {/* ── AI DISCARDS ── */}
       <div
         ref={isLargeScreen ? largeScreenDiscardRowRef : undefined}
-        className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
+        className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5 flex justify-center'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
         style={
           isLargeScreen
             ? { height: `${discardAreaFixedHeightPx}px` }
@@ -1287,14 +1287,20 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             isPhoneLandscape
               ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
               // iPad/desktop (both orientations) and phone portrait all use the same pattern
-              // now: a fixed-width frame, centered via mx-auto — exactly how the hand/meld row
-              // is sized and centered. Discards fill the frame left-to-right/top-to-bottom by
-              // index, so existing tiles never move as more are appended; the frame represents
-              // the row's full planned capacity, not just however many happen to be placed so
-              // far. Only the frame's own width (below) differs by device: iPad/desktop use
-              // largeScreenDiscardMaxPerRow, measured once from the row's own available width
-              // (see the effect above); phone portrait uses a fixed 8-per-row.
-              : `grid ${handGapClass} content-start mx-auto`
+              // now: a fixed-width frame, centered by the OUTER container's `flex justify-center`
+              // — exactly how the hand/meld row is centered (not `mx-auto` on this inner element,
+              // which centers differently when the frame is wider than its padded container:
+              // block-level auto-margins can't go negative and collapse to flush-left instead of
+              // centering through the overflow, while flex justify-content:center does center
+              // through it — that mismatch was why discards didn't line up with the hand row on
+              // some screens even though both frames are the same width). Discards fill the frame
+              // left-to-right/top-to-bottom by index, so existing tiles never move as more are
+              // appended; the frame represents the row's full planned capacity, not just however
+              // many happen to be placed so far. Only the frame's own width (below) differs by
+              // device: iPad/desktop use largeScreenDiscardMaxPerRow, measured once from the
+              // row's own available width (see the effect above); phone portrait uses a fixed
+              // 8-per-row.
+              : `grid ${handGapClass} content-start`
           }
           style={!isPhoneLandscape ? {
             gridTemplateColumns: `repeat(${isLargeScreen ? largeScreenDiscardMaxPerRow : 8}, ${HAND_TILE_PX}px)`,
@@ -1321,7 +1327,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
       {/* ── PLAYER DISCARDS ── */}
       <div
-        className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
+        className={`${isLargeScreen || isPhoneLandscape ? 'shrink-0' : `flex-1 ${discardMinHeightClass}`} w-full ${isPhoneLandscape ? 'py-1.5' : 'px-2 py-1.5 flex justify-center'} bg-[#054333]/50 border-b border-emerald-500/10 overflow-y-auto`}
         style={
           isLargeScreen
             ? { height: `${discardAreaFixedHeightPx}px` }
@@ -1337,15 +1343,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           className={
             isPhoneLandscape
               ? `flex flex-nowrap ${handGapClass} overflow-x-auto`
-              // iPad/desktop (both orientations) and phone portrait all use the same pattern
-              // now: a fixed-width frame, centered via mx-auto — exactly how the hand/meld row
-              // is sized and centered. Discards fill the frame left-to-right/top-to-bottom by
-              // index, so existing tiles never move as more are appended; the frame represents
-              // the row's full planned capacity, not just however many happen to be placed so
-              // far. Only the frame's own width (below) differs by device: iPad/desktop use
-              // largeScreenDiscardMaxPerRow, measured once from the row's own available width
-              // (see the effect above); phone portrait uses a fixed 8-per-row.
-              : `grid ${handGapClass} content-start mx-auto`
+              // Centered by the OUTER container's `flex justify-center`, matching the hand/meld
+              // row — see the AI discard block above for why `mx-auto` on this element was wrong.
+              : `grid ${handGapClass} content-start`
           }
           style={!isPhoneLandscape ? {
             gridTemplateColumns: `repeat(${isLargeScreen ? largeScreenDiscardMaxPerRow : 8}, ${HAND_TILE_PX}px)`,
