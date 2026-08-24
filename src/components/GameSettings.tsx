@@ -35,12 +35,21 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
   const logoSizeClass = 'w-14 h-14';
   const logoTextClass = 'text-2xl';
   const titleTextClass = 'text-2xl';
-  const sectionPadClass = 'p-3';
+  // p-2 rather than p-3: on a narrower effective viewport (e.g. an iPhone with iOS's "Zoomed"
+  // Display Zoom setting, which reports a smaller logical width — 375px instead of 414px on an
+  // iPhone 11 — even narrower than iPhone 14 Pro's own 393px reference), the tile-mode buttons'
+  // main label ("56 子 (中等)") no longer fit on one line at the old padding, adding a third
+  // wrapped line to both the buttons and the description text below, which was tall enough to
+  // push the whole page past single-screen height. The extra ~8px this reclaims (spread across
+  // all 4 sections, not just tile mode, for consistency) is what keeps that at 2 lines again.
+  const sectionPadClass = 'p-2';
   const labelTextClass = 'text-base';
   // Designed for older players: nothing on this page should render under 15px.
   const bodyTextClass = 'text-[15px]';
   const inputClass = 'px-3 py-2 text-base';
-  const modeBtnClass = 'py-2 px-1 text-base';
+  // text-[15px] (not text-base/16px) and a tighter gap-1 grid (see below) for the same reason as
+  // sectionPadClass above — this is the specific button whose main label was wrapping to 2 lines.
+  const modeBtnClass = 'py-2 px-0.5 text-[15px]';
   const modeSubTextClass = 'text-[15px]';
   const choiceBtnClass = 'py-2 text-base';
   const startBtnClass = 'py-4 text-xl';
@@ -136,7 +145,7 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
             <label className={`${labelTextClass} font-bold text-amber-200 block mb-2 font-serif`}>
               🥋 棋子數量模式 (Tile Mode)
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1">
               <button
                 type="button"
                 onClick={() => setMode(32)}
