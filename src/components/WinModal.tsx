@@ -180,13 +180,12 @@ export const WinModal: React.FC<WinModalProps> = ({
   // cap plus an extra upscale would visually exceed the viewport with no way to reach the
   // excess) — dividing by scale keeps the VISUAL result capped at this fraction of the viewport
   // regardless of scale, while overflow-y-auto (unchanged) keeps handling the actual scrolling.
-  // Portrait gets a taller ceiling (96% vs landscape's original 85%) to match the wider cap
-  // above — both push the card as close to the full available space as still leaves a visible
-  // backdrop margin.
+  // Same tall ceiling (96%) in both orientations now — raising it never causes new overflow (it
+  // only relaxes how early the card's own scroll would otherwise kick in), it just leaves a
+  // small, still-visible backdrop margin instead of an oversized unused gap.
   const cardRef = useRef<HTMLDivElement>(null);
   const { scale } = useSecondaryPageScale(cardRef);
-  const heightFraction = !isLandscape ? 0.96 : 0.85;
-  const maxHeightPx = (typeof window !== 'undefined' ? window.innerHeight * heightFraction : 900) / scale;
+  const maxHeightPx = (typeof window !== 'undefined' ? window.innerHeight * 0.96 : 900) / scale;
 
   // Measured post-mount so fireworks can steer clear of the AI/player hand rows and the fan
   // (台數/"score") box — real DOM rects rather than guessed layout percentages, so this stays
