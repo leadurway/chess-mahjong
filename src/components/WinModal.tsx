@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChessTile } from './ChessTile';
 import { Tile, Meld, GameMode } from '../types';
 import { sortHandForDisplay, getMeldDisplayTiles } from '../utils/gameEngine';
-import { useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
+import { useIsLandscape, useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
 
 interface WinModalProps {
   winner: 'player' | 'ai' | null; // null = 流局 (drawn game, wall exhausted with nobody winning)
@@ -153,7 +153,13 @@ export const WinModal: React.FC<WinModalProps> = ({
   // not a raw CSS md: breakpoint — a phone in landscape with a wide viewport must not get the
   // iPad/desktop treatment just because its width happens to cross 768px.
   const isLargeScreen = useIsLargeScreen();
-  const cardMaxWidthClass = isLargeScreen ? 'max-w-2xl' : 'max-w-md';
+  // Portrait has plenty of vertical room to spare, so the card should read as large as
+  // possible: no width cap (max-w-2xl/max-w-md otherwise leaves a real unused margin on wider
+  // portrait screens like iPad/PC web, where the backdrop is comfortably wider than either
+  // cap), and a taller height ceiling below. Landscape keeps the original caps — its shorter
+  // viewport is already the binding constraint there, and this is the proven-working layout.
+  const isLandscape = useIsLandscape();
+  const cardMaxWidthClass = !isLandscape ? 'max-w-full' : isLargeScreen ? 'max-w-2xl' : 'max-w-md';
   const cardPaddingClass = isLargeScreen ? 'p-6' : 'p-3';
   // Designed for older players: nothing on this page may render under 15px — several of these
   // (labelTextClass, winSubTextClass, fanHeadingClass, fanListTextClass) previously sat below
@@ -170,13 +176,17 @@ export const WinModal: React.FC<WinModalProps> = ({
   const fanListMaxHeightClass = isLargeScreen ? 'max-h-48' : 'max-h-32';
 
   // Card scale per device tier (see useSecondaryPageScale). Its own max-height must be computed
-  // in the UNSCALED coordinate space (transform doesn't feed back into layout, so a fixed "85dvh"
+  // in the UNSCALED coordinate space (transform doesn't feed back into layout, so a fixed height
   // cap plus an extra upscale would visually exceed the viewport with no way to reach the
-  // excess) — dividing by scale keeps the VISUAL result capped at 85% of the viewport regardless
-  // of scale, while overflow-y-auto (unchanged) keeps handling the actual scrolling.
+  // excess) — dividing by scale keeps the VISUAL result capped at this fraction of the viewport
+  // regardless of scale, while overflow-y-auto (unchanged) keeps handling the actual scrolling.
+  // Portrait gets a taller ceiling (96% vs landscape's original 85%) to match the wider cap
+  // above — both push the card as close to the full available space as still leaves a visible
+  // backdrop margin.
   const cardRef = useRef<HTMLDivElement>(null);
   const { scale } = useSecondaryPageScale(cardRef);
-  const maxHeightPx = (typeof window !== 'undefined' ? window.innerHeight * 0.85 : 900) / scale;
+  const heightFraction = !isLandscape ? 0.96 : 0.85;
+  const maxHeightPx = (typeof window !== 'undefined' ? window.innerHeight * heightFraction : 900) / scale;
 
   // Measured post-mount so fireworks can steer clear of the AI/player hand rows and the fan
   // (台數/"score") box — real DOM rects rather than guessed layout percentages, so this stays
