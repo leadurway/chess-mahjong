@@ -1128,62 +1128,79 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       transition={{ type: 'spring', damping: 26, stiffness: 300 }}
       className="absolute top-full left-0 right-0 z-30 bg-stone-950 border-t border-amber-500/30 shadow-2xl"
     >
-      <div
-        className={isLandscape ? 'px-3 py-2 flex gap-2' : 'px-3 py-2 grid grid-cols-2 gap-2'}
-        style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
-      >
-        {gameState.phase === 'showMeldSelect' && interrupts.canEat && (
-          <button
-            onClick={handlePlayerEat}
-            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
-          >
+      {(() => {
+        // Always in 吃/碰/槓/胡/過 order (self-kong slots in with 槓, since it's the same
+        // action just self-declared rather than claimed). Landscape: one row, whatever's
+        // present divides the width evenly. Portrait: at most 2 rows — top row is the "claim"
+        // actions (吃/碰/槓), bottom row is 胡/過 — each row's buttons divide THAT row's width,
+        // rather than a fixed 2-column grid that could split a 5-button case across 3 rows and
+        // get clipped at the bottom.
+        const btnClass = `${bigBtnClass} flex-1 min-w-0 px-1 rounded-2xl font-black font-serif active:scale-95 transition`;
+        const eatBtn = gameState.phase === 'showMeldSelect' && interrupts.canEat && (
+          <button key="eat" onClick={handlePlayerEat} className={`${btnClass} bg-yellow-400 text-black shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200`}>
             吃牌
           </button>
-        )}
-        {gameState.phase === 'showMeldSelect' && interrupts.canPong && (
-          <button
-            onClick={handlePlayerPong}
-            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
-          >
+        );
+        const pongBtn = gameState.phase === 'showMeldSelect' && interrupts.canPong && (
+          <button key="pong" onClick={handlePlayerPong} className={`${btnClass} bg-yellow-400 text-black shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200`}>
             碰牌
           </button>
-        )}
-        {gameState.phase === 'showMeldSelect' && interrupts.canKong && (
-          <button
-            onClick={handlePlayerKong}
-            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
-          >
+        );
+        const kongBtn = gameState.phase === 'showMeldSelect' && interrupts.canKong && (
+          <button key="kong" onClick={handlePlayerKong} className={`${btnClass} bg-yellow-400 text-black shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200`}>
             槓牌
           </button>
-        )}
-        {selfKongOptions.length > 0 && (
-          <button
-            onClick={handlePlayerSelfKong}
-            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-yellow-400 text-black font-black font-serif shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200 active:scale-95 transition`}
-          >
+        );
+        const selfKongBtn = selfKongOptions.length > 0 && (
+          <button key="selfkong" onClick={handlePlayerSelfKong} className={`${btnClass} bg-yellow-400 text-black shadow-[0_0_16px_4px_rgba(250,204,21,0.65)] ring-2 ring-yellow-200`}>
             {selfKongOptions[0].isUpgrade ? '補槓' : '暗槓'}
           </button>
-        )}
-        {((gameState.phase === 'showMeldSelect' && interrupts.canWin) || isSelfDrawWinAvailable) && (
-          <button
-            onClick={handlePlayerDeclareWin}
-            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-red-600 text-white font-black font-serif shadow-[0_0_16px_4px_rgba(220,38,38,0.65)] ring-2 ring-red-300 active:scale-95 transition`}
-          >
+        );
+        const winBtn = ((gameState.phase === 'showMeldSelect' && interrupts.canWin) || isSelfDrawWinAvailable) && (
+          <button key="win" onClick={handlePlayerDeclareWin} className={`${btnClass} bg-red-600 text-white shadow-[0_0_16px_4px_rgba(220,38,38,0.65)] ring-2 ring-red-300`}>
             🔥 胡牌！
           </button>
-        )}
-        {showActionPopup && (
+        );
+        const passBtn = showActionPopup && (
           <button
+            key="pass"
             onClick={() => {
               if (gameState.phase === 'showMeldSelect') handlePlayerPass();
               else setOwnTurnOfferDismissed(true);
             }}
-            className={`${bigBtnClass} ${isLandscape ? 'flex-1 min-w-0 px-1' : ''} rounded-2xl bg-stone-600 text-white font-black font-serif shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400 active:scale-95 transition`}
+            className={`${btnClass} bg-stone-600 text-white shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400`}
           >
             過
           </button>
-        )}
-      </div>
+        );
+        const claimRow = [eatBtn, pongBtn, kongBtn, selfKongBtn].filter(Boolean);
+        const resolveRow = [winBtn, passBtn].filter(Boolean);
+        const totalCount = claimRow.length + resolveRow.length;
+
+        // Landscape is always one row. Portrait only splits into the two-row 吃碰槓/胡過
+        // grouping once there are 3+ buttons to justify it — with just 1-2 buttons total,
+        // splitting them across two rows would waste vertical space for no reason, so those
+        // stay a single row together.
+        if (isLandscape || totalCount <= 2) {
+          return (
+            <div
+              className="px-3 py-2 flex gap-2"
+              style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+            >
+              {claimRow}{resolveRow}
+            </div>
+          );
+        }
+        return (
+          <div
+            className="px-3 py-2 flex flex-col gap-2"
+            style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+          >
+            {claimRow.length > 0 && <div className="flex gap-2">{claimRow}</div>}
+            {resolveRow.length > 0 && <div className="flex gap-2">{resolveRow}</div>}
+          </div>
+        );
+      })()}
     </motion.div>
   );
 
