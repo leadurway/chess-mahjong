@@ -1129,10 +1129,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       className="absolute top-full left-0 right-0 z-30 bg-stone-950 border-t border-amber-500/30 shadow-2xl"
     >
       {(() => {
-        // Always in 吃/碰/槓/胡/過 order (self-kong slots in with 槓, since it's the same
+        // Always in 吃/碰/槓/過/胡 order (self-kong slots in with 槓, since it's the same
         // action just self-declared rather than claimed). Landscape: one row, whatever's
         // present divides the width evenly. Portrait: at most 2 rows — top row is the "claim"
-        // actions (吃/碰/槓), bottom row is 胡/過 — each row's buttons divide THAT row's width,
+        // actions (吃/碰/槓), bottom row is 過/胡 — each row's buttons divide THAT row's width,
         // rather than a fixed 2-column grid that could split a 5-button case across 3 rows and
         // get clipped at the bottom.
         const btnClass = `${bigBtnClass} flex-1 min-w-0 px-1 rounded-2xl font-black font-serif active:scale-95 transition`;
@@ -1173,31 +1173,33 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             過
           </button>
         );
-        const claimRow = [eatBtn, pongBtn, kongBtn, selfKongBtn].filter(Boolean);
-        const resolveRow = [winBtn, passBtn].filter(Boolean);
-        const totalCount = claimRow.length + resolveRow.length;
+        const allButtons = [eatBtn, pongBtn, kongBtn, selfKongBtn, passBtn, winBtn].filter(Boolean);
 
-        // Landscape is always one row. Portrait only splits into the two-row 吃碰槓/胡過
-        // grouping once there are 3+ buttons to justify it — with just 1-2 buttons total,
-        // splitting them across two rows would waste vertical space for no reason, so those
-        // stay a single row together.
-        if (isLandscape || totalCount <= 2) {
+        // Landscape is always one row. Portrait splits into (at most) 2 rows purely by count,
+        // keeping the fixed 吃/碰/槓/過/胡 order intact left-to-right then top-to-bottom: 1-2
+        // buttons stay a single row (splitting so few would waste vertical space); 3+ buttons
+        // split with the first ceil(n/2) on top and the rest below (3 → 2+1, 4 → 2+2, 5 → 3+2),
+        // rather than a fixed 2-column grid that could wrap unpredictably and get clipped.
+        if (isLandscape || allButtons.length <= 2) {
           return (
             <div
               className="px-3 py-2 flex gap-2"
               style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
             >
-              {claimRow}{resolveRow}
+              {allButtons}
             </div>
           );
         }
+        const topCount = Math.ceil(allButtons.length / 2);
+        const topRow = allButtons.slice(0, topCount);
+        const bottomRow = allButtons.slice(topCount);
         return (
           <div
             className="px-3 py-2 flex flex-col gap-2"
             style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
           >
-            {claimRow.length > 0 && <div className="flex gap-2">{claimRow}</div>}
-            {resolveRow.length > 0 && <div className="flex gap-2">{resolveRow}</div>}
+            <div className="flex gap-2">{topRow}</div>
+            {bottomRow.length > 0 && <div className="flex gap-2">{bottomRow}</div>}
           </div>
         );
       })()}
