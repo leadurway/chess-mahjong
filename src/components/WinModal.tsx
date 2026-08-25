@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChessTile } from './ChessTile';
 import { Tile, Meld, GameMode } from '../types';
 import { sortHandForDisplay, getMeldDisplayTiles } from '../utils/gameEngine';
-import { useIsLandscape, useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
+import { useDeviceType, useIsLandscape, useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
 
 interface WinModalProps {
   winner: 'player' | 'ai' | null; // null = 流局 (drawn game, wall exhausted with nobody winning)
@@ -153,13 +153,20 @@ export const WinModal: React.FC<WinModalProps> = ({
   // not a raw CSS md: breakpoint — a phone in landscape with a wide viewport must not get the
   // iPad/desktop treatment just because its width happens to cross 768px.
   const isLargeScreen = useIsLargeScreen();
-  // Portrait has plenty of vertical room to spare, so the card should read as large as
-  // possible: no width cap (max-w-2xl/max-w-md otherwise leaves a real unused margin on wider
-  // portrait screens like iPad/PC web, where the backdrop is comfortably wider than either
-  // cap), and a taller height ceiling below. Landscape keeps the original caps — its shorter
-  // viewport is already the binding constraint there, and this is the proven-working layout.
+  const deviceType = useDeviceType();
   const isLandscape = useIsLandscape();
-  const cardMaxWidthClass = !isLandscape ? 'max-w-full' : isLargeScreen ? 'max-w-2xl' : 'max-w-md';
+  // iPad landscape reuses iPad PORTRAIT's settings (same physical device, just rotated) rather
+  // than its own shorter/narrower landscape shape — matching how useSecondaryPageScale already
+  // locks the scale itself for 'ipad' to `[min(w,h), max(w,h)]` regardless of actual orientation.
+  // PC web isn't a rotating physical device, so it keeps its own real per-orientation shape.
+  const isIpadLocked = deviceType === 'ipad';
+  // Portrait (and iPad landscape, locked to portrait) has plenty of vertical room to spare, so
+  // the card should read as large as possible: no width cap (max-w-2xl/max-w-md otherwise
+  // leaves a real unused margin on wider portrait screens like iPad/PC web, where the backdrop
+  // is comfortably wider than either cap), and a taller height ceiling below. Plain landscape
+  // (iPhone, PC web) keeps the original caps — its shorter viewport is genuinely the binding
+  // constraint there, and this is the proven-working layout.
+  const cardMaxWidthClass = (!isLandscape || isIpadLocked) ? 'max-w-full' : isLargeScreen ? 'max-w-2xl' : 'max-w-md';
   const cardPaddingClass = isLargeScreen ? 'p-6' : 'p-3';
   // Designed for older players: nothing on this page may render under 15px — several of these
   // (labelTextClass, winSubTextClass, fanHeadingClass, fanListTextClass) previously sat below
@@ -187,7 +194,17 @@ export const WinModal: React.FC<WinModalProps> = ({
   // (see the card's className) rather than sitting empty above/below a content-sized card.
   const cardRef = useRef<HTMLDivElement>(null);
   const { scale } = useSecondaryPageScale(cardRef);
-  const maxHeightPx = (typeof window !== 'undefined' ? window.innerHeight * 0.96 : 900) / scale;
+  // For iPad, lock the height reference to the LARGER of the two real viewport dimensions —
+  // i.e. always "portrait's" height, matching the width-cap and scale locks above — instead of
+  // the actual (shorter) landscape innerHeight. This deliberately makes the card taller than an
+  // actual iPad-landscape viewport when locked; the scroll wrapper around the card (see the
+  // return below) is what makes that reachable rather than just clipped.
+  const heightRefPx = typeof window === 'undefined'
+    ? 900
+    : isIpadLocked
+      ? Math.max(window.innerWidth, window.innerHeight)
+      : window.innerHeight;
+  const maxHeightPx = (heightRefPx * 0.96) / scale;
 
   // Measured post-mount so fireworks can steer clear of the AI/player hand rows and the fan
   // (台數/"score") box — real DOM rects rather than guessed layout percentages, so this stays
@@ -229,15 +246,20 @@ export const WinModal: React.FC<WinModalProps> = ({
   const slotCount = mode === 32 ? 5 : 8;
 
   return (
-    // Same pattern as RuleGuide/draw-game modal: the OUTER layer just centers (no scroll of
-    // its own), and the INNER card is height-set to ~96dvh (see maxHeightPx above) with its own
-    // overflow-y-auto — unlike having the outermost fixed layer itself be the scroll container,
-    // this is the proven-reliable pattern for iOS Safari (an earlier version of this modal used
-    // the outer-scrolls approach and couldn't be scrolled at all in iPhone landscape).
-    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3">
+    // The truly `position: fixed` layer never gets `overflow-y-auto` on itself — that specific
+    // combination is what broke scrolling in iPhone landscape in an earlier version of this
+    // modal (see the historical note this replaced). Scrolling instead lives on the NON-fixed
+    // wrapper directly inside it, which is a completely different, safe pattern: it centers the
+    // card as before, but because it's a normal in-flow element (not fixed itself), its own
+    // overflow-y-auto can genuinely reveal whatever of the card's box — now deliberately taller
+    // than the real viewport for locked iPad landscape — sticks out above/below what's visible.
+    // The card keeps its own nested overflow-y-auto too, as a second-layer safety net for the
+    // rarer case where its INTERNAL content (e.g. a long fan list) exceeds even that height.
+    <div className="fixed inset-0 bg-black/85 z-50">
+      <div className="h-full overflow-y-auto flex items-center justify-center p-3">
       <div
         ref={cardRef}
-        className={`relative w-full ${cardMaxWidthClass} overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100 flex flex-col justify-between`}
+        className={`relative w-full ${cardMaxWidthClass} overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100 flex flex-col justify-between shrink-0`}
         style={{ height: `${maxHeightPx}px`, transform: `scale(${scale})` }}
       >
 
@@ -309,6 +331,7 @@ export const WinModal: React.FC<WinModalProps> = ({
         >
           繼續下局
         </button>
+      </div>
       </div>
 
       {/* Fireworks — only for a player win (celebrating your own win, not the AI's), rendered
