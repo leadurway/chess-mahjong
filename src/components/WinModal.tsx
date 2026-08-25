@@ -175,14 +175,16 @@ export const WinModal: React.FC<WinModalProps> = ({
   const fanListTextClass = isLargeScreen ? 'text-lg' : 'text-[15px]';
   const fanListMaxHeightClass = isLargeScreen ? 'max-h-48' : 'max-h-32';
 
-  // Card scale per device tier (see useSecondaryPageScale). Its own max-height must be computed
-  // in the UNSCALED coordinate space (transform doesn't feed back into layout, so a fixed height
-  // cap plus an extra upscale would visually exceed the viewport with no way to reach the
-  // excess) — dividing by scale keeps the VISUAL result capped at this fraction of the viewport
-  // regardless of scale, while overflow-y-auto (unchanged) keeps handling the actual scrolling.
-  // Same tall ceiling (96%) in both orientations now — raising it never causes new overflow (it
-  // only relaxes how early the card's own scroll would otherwise kick in), it just leaves a
-  // small, still-visible backdrop margin instead of an oversized unused gap.
+  // Card scale per device tier (see useSecondaryPageScale). Its own height must be computed in
+  // the UNSCALED coordinate space (transform doesn't feed back into layout, so a fixed height
+  // plus an extra upscale would visually exceed the viewport with no way to reach the excess) —
+  // dividing by scale keeps the VISUAL result at this fraction of the viewport regardless of
+  // scale, while overflow-y-auto (unchanged) keeps handling any real overflow beyond it.
+  // This is a real `height`, not just a `max-height` — when the card's own content (hand rows,
+  // win box, fan box, continue button) is shorter than the available space, as it usually is on
+  // a roomy iPad portrait screen, the card still fills the full target height, with the leftover
+  // space distributed as gaps between those sections via `justify-between` on the card itself
+  // (see the card's className) rather than sitting empty above/below a content-sized card.
   const cardRef = useRef<HTMLDivElement>(null);
   const { scale } = useSecondaryPageScale(cardRef);
   const maxHeightPx = (typeof window !== 'undefined' ? window.innerHeight * 0.96 : 900) / scale;
@@ -228,15 +230,15 @@ export const WinModal: React.FC<WinModalProps> = ({
 
   return (
     // Same pattern as RuleGuide/draw-game modal: the OUTER layer just centers (no scroll of
-    // its own), and the INNER card is height-capped to 85dvh with its own overflow-y-auto —
-    // unlike having the outermost fixed layer itself be the scroll container, this is the
-    // proven-reliable pattern for iOS Safari (an earlier version of this modal used the
-    // outer-scrolls approach and couldn't be scrolled at all in iPhone landscape).
+    // its own), and the INNER card is height-set to ~96dvh (see maxHeightPx above) with its own
+    // overflow-y-auto — unlike having the outermost fixed layer itself be the scroll container,
+    // this is the proven-reliable pattern for iOS Safari (an earlier version of this modal used
+    // the outer-scrolls approach and couldn't be scrolled at all in iPhone landscape).
     <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3">
       <div
         ref={cardRef}
-        className={`relative w-full ${cardMaxWidthClass} overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100`}
-        style={{ maxHeight: `${maxHeightPx}px`, transform: `scale(${scale})` }}
+        className={`relative w-full ${cardMaxWidthClass} overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100 flex flex-col justify-between`}
+        style={{ height: `${maxHeightPx}px`, transform: `scale(${scale})` }}
       >
 
         {/* a. Both hands, one row each: exposed melds (same chow/pong/kong glow + kong tile-
