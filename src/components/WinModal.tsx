@@ -188,14 +188,10 @@ export const WinModal: React.FC<WinModalProps> = ({
   const fanTotalClass = isLargeScreen ? 'text-3xl' : 'text-xl';
   const fanListTextClass = isLargeScreen ? 'text-lg' : 'text-[15px]';
 
-  // Card scale per device tier (see useSecondaryPageScale). Its own max-height must be computed
-  // in the UNSCALED coordinate space (transform doesn't feed back into layout, so a fixed "85dvh"
-  // cap plus an extra upscale would visually exceed the viewport with no way to reach the
-  // excess) — dividing by scale keeps the VISUAL result capped at 85% of the viewport regardless
-  // of scale, while overflow-y-auto (unchanged) keeps handling the actual scrolling.
+  // Card scale per device tier (see useSecondaryPageScale). The card itself no longer imposes
+  // its own max-height/scroll — see the return block below for where scrolling now lives.
   const cardRef = useRef<HTMLDivElement>(null);
   const { scale } = useSecondaryPageScale(cardRef);
-  const maxHeightPx = (typeof window !== 'undefined' ? window.innerHeight * 0.85 : 900) / scale;
 
   // Measured post-mount so fireworks can steer clear of the AI/player hand rows and the fan
   // (台數/"score") box — real DOM rects rather than guessed layout percentages, so this stays
@@ -237,17 +233,22 @@ export const WinModal: React.FC<WinModalProps> = ({
   const slotCount = mode === 32 ? 5 : 8;
 
   return (
-    // Same pattern as RuleGuide/draw-game modal: the OUTER layer just centers (no scroll of
-    // its own), and the INNER card is height-capped to 85dvh with its own overflow-y-auto —
-    // unlike having the outermost fixed layer itself be the scroll container, this is the
-    // proven-reliable pattern for iOS Safari (an earlier version of this modal used the
-    // outer-scrolls approach and couldn't be scrolled at all in iPhone landscape).
-    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3">
+    // The truly `position:fixed` backdrop must never itself own overflow-y-auto — iOS Safari
+    // cannot scroll that combination at all (an earlier version of this modal did exactly that
+    // and was unscrollable in iPhone landscape). So scrolling instead lives on a normal
+    // (non-fixed, absolutely-positioned) full-size wrapper sandwiched between the backdrop and
+    // the card. The card itself carries no max-height/overflow of its own any more, so this
+    // wrapper's plain browser-native scrollbar is the only scrollbar the settlement page shows
+    // — nothing scrolls "inside" the card. `min-h-full` + flex-centering on the inner-inner div
+    // is the standard trick to keep short content centered while still letting taller content
+    // scroll into view instead of being clipped by align-items:center.
+    <div className="fixed inset-0 bg-black/85 z-50">
+      <div className="absolute inset-0 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+        <div className="min-h-full flex items-center justify-center p-3">
       <div
         ref={cardRef}
-        className={`relative overflow-y-auto overflow-x-hidden bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100`}
+        className={`relative bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100`}
         style={{
-          maxHeight: `${maxHeightPx}px`,
           ...(cardWidthPx !== undefined ? { width: `${cardWidthPx}px` } : {}),
           transform: `scale(${scale})`,
         }}
@@ -322,13 +323,17 @@ export const WinModal: React.FC<WinModalProps> = ({
           繼續下局
         </button>
       </div>
+        </div>
+      </div>
 
       {/* Fireworks — only for a player win (celebrating your own win, not the AI's), rendered
           last (on top of the modal card, not just the backdrop) and fixed to the viewport
           regardless of scroll: origins are randomized across the whole screen, and on
           tall/narrow phones the modal card itself can cover almost the entire viewport,
           leaving no backdrop area free for a "behind the modal" effect to actually be seen.
-          Kept pointer-events-none so it never blocks the tiles or the continue button. */}
+          Kept pointer-events-none so it never blocks the tiles or the continue button. Sits as
+          a direct sibling of the scroll wrapper (not inside it) so it stays `fixed` to the
+          viewport regardless of how far the settlement content has been scrolled. */}
       {isPlayerWin && (
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           {particles.map(p => (
