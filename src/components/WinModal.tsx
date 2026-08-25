@@ -260,11 +260,15 @@ export const WinModal: React.FC<WinModalProps> = ({
     // The card keeps its own nested overflow-y-auto too, as a second-layer safety net for the
     // rarer case where its INTERNAL content (e.g. a long fan list) exceeds even that height.
     <div className="fixed inset-0 bg-black/85 z-50">
-      <div className="h-full overflow-y-auto flex items-center justify-center p-3">
+      <div
+        className="h-full overflow-y-auto flex items-center justify-center p-3"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
       <div
         ref={cardRef}
-        className={`relative w-full ${cardMaxWidthClass} overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100 flex flex-col justify-between shrink-0`}
+        className={`relative w-full ${cardMaxWidthClass} overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100 flex flex-col justify-between shrink-0 min-h-0`}
         style={{
+          WebkitOverflowScrolling: 'touch',
           height: `${maxHeightPx}px`,
           ...(ipadLockedMaxWidthPx !== undefined ? { maxWidth: `${ipadLockedMaxWidthPx}px` } : {}),
           transform: `scale(${scale})`,
