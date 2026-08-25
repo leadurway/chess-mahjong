@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChessTile } from './ChessTile';
 import { Tile, Meld, GameMode } from '../types';
 import { sortHandForDisplay, getMeldDisplayTiles } from '../utils/gameEngine';
-import { useDeviceType, useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
+import { IPAD_REFERENCE, useDeviceType, useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
 
 interface WinModalProps {
   winner: 'player' | 'ai' | null; // null = 流局 (drawn game, wall exhausted with nobody winning)
@@ -154,16 +154,26 @@ export const WinModal: React.FC<WinModalProps> = ({
   // iPad/desktop treatment just because its width happens to cross 768px.
   const isLargeScreen = useIsLargeScreen();
   const deviceType = useDeviceType();
-  const cardMaxWidthClass = isLargeScreen ? 'max-w-2xl' : 'max-w-md';
-  // iPhone/iPad (both physically-rotating devices, unlike PC web) use the full available width
-  // in portrait — no Tailwind cap left to bind, since min(innerWidth, innerHeight) already IS
-  // portrait's own width — and landscape reuses that exact same pixel width rather than
-  // stretching to landscape's own wider shape. -24 matches the backdrop's own `p-3` (12px each
-  // side), which portrait's plain `w-full` already nets out to automatically; this explicit
-  // value has to subtract it manually to land on the identical width in both orientations.
-  const cardWidthPx = deviceType !== 'pcweb' && typeof window !== 'undefined'
-    ? Math.min(window.innerWidth, window.innerHeight) - 24
-    : undefined;
+  // No Tailwind max-w-* class at all any more — it used to cap the card at 672px/448px, and
+  // since CSS max-width always wins over an explicit width, that silently clamped cardWidthPx
+  // below no matter what it computed to (a real bug: the card LOOKED right afterward purely by
+  // coincidence, because useSecondaryPageScale's compensating transform scale happened to
+  // stretch the clamped box back out to near the intended visual size on some devices, but not
+  // on others — e.g. PC web ended up at 758px instead of 796px). cardWidthPx is now the only
+  // source of the card's width, on every device tier, so there's nothing left for a Tailwind cap
+  // to usefully constrain.
+  // iPhone/iPad (physically-rotating devices) use the full available width in portrait — and
+  // landscape reuses that exact same pixel width rather than stretching to landscape's own wider
+  // shape. -24 matches the backdrop's own `p-3` (12px each side), which portrait's plain
+  // `w-full` used to net out to automatically; this explicit value has to subtract it manually
+  // to land on the identical width in both orientations.
+  // PC web isn't a rotating device, so instead of its own window shape it uses a fixed
+  // reference: iPad portrait's width (IPAD_REFERENCE.portrait.width, same -24 adjustment).
+  const cardWidthPx = typeof window === 'undefined'
+    ? undefined
+    : deviceType === 'pcweb'
+      ? IPAD_REFERENCE.portrait.width - 24
+      : Math.min(window.innerWidth, window.innerHeight) - 24;
   const cardPaddingClass = isLargeScreen ? 'p-6' : 'p-3';
   // Designed for older players: nothing on this page may render under 15px — several of these
   // (labelTextClass, winSubTextClass, fanHeadingClass, fanListTextClass) previously sat below
@@ -177,7 +187,6 @@ export const WinModal: React.FC<WinModalProps> = ({
   const fanHeadingClass = isLargeScreen ? 'text-xl' : 'text-[15px]';
   const fanTotalClass = isLargeScreen ? 'text-3xl' : 'text-xl';
   const fanListTextClass = isLargeScreen ? 'text-lg' : 'text-[15px]';
-  const fanListMaxHeightClass = isLargeScreen ? 'max-h-48' : 'max-h-32';
 
   // Card scale per device tier (see useSecondaryPageScale). Its own max-height must be computed
   // in the UNSCALED coordinate space (transform doesn't feed back into layout, so a fixed "85dvh"
@@ -236,7 +245,7 @@ export const WinModal: React.FC<WinModalProps> = ({
     <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3">
       <div
         ref={cardRef}
-        className={`relative w-full ${cardMaxWidthClass} overflow-y-auto overflow-x-hidden bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100`}
+        className={`relative overflow-y-auto overflow-x-hidden bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100`}
         style={{
           maxHeight: `${maxHeightPx}px`,
           ...(cardWidthPx !== undefined ? { width: `${cardWidthPx}px` } : {}),
@@ -291,7 +300,7 @@ export const WinModal: React.FC<WinModalProps> = ({
             <span>📊 台數計算</span>
             <span className={`${fanTotalClass} text-amber-400 font-extrabold font-mono`}>{totalFans} 台</span>
           </h3>
-          <div className={`divide-y divide-stone-800 ${fanListTextClass} ${fanListMaxHeightClass} overflow-y-auto`}>
+          <div className={`divide-y divide-stone-800 ${fanListTextClass}`}>
             {fans.map((fan, index) => (
               <div key={`fan_${index}`} className="py-2 flex justify-between items-center">
                 <span className="text-stone-200 font-medium">{fan.name}</span>
