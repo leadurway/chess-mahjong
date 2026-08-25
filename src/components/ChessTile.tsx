@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import { Tile } from '../types';
 
 interface ChessTileProps {
@@ -130,18 +129,15 @@ export const ChessTile: React.FC<ChessTileProps> = ({
 
   if (!isClickable) return <div id={id}>{box}</div>;
 
-  // No y-axis movement here (on hover or while selected) — a tile's position must stay put;
-  // isSelected is conveyed entirely by activeGlow's ring above. Scale-only feedback on
-  // hover/tap doesn't shift the tile's box position the way a translateY does.
+  // No transform of any kind here (no y-lift, no hover/tap scale) — a tile's position and size
+  // must stay completely fixed; isSelected is conveyed entirely by activeGlow's ring above,
+  // which is an absolutely-positioned overlay inside the tile's own box and never changes that
+  // box's size. Even a scale-only transform was enough to occasionally grow a tile past its
+  // row's own edge (rows are `overflow-x-auto`), which could reveal that row's native scrollbar
+  // on PC web — a plain div with no animation at all avoids that category of issue entirely.
   return (
-    <motion.div
-      id={id}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={onClick}
-      className="cursor-pointer"
-    >
+    <div id={id} onClick={onClick} className="cursor-pointer">
       {box}
-    </motion.div>
+    </div>
   );
 };
