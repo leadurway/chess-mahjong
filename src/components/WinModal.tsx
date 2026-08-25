@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChessTile } from './ChessTile';
 import { Tile, Meld, GameMode } from '../types';
 import { sortHandForDisplay, getMeldDisplayTiles } from '../utils/gameEngine';
-import { useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
+import { useDeviceType, useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
 
 interface WinModalProps {
   winner: 'player' | 'ai' | null; // null = 流局 (drawn game, wall exhausted with nobody winning)
@@ -153,7 +153,17 @@ export const WinModal: React.FC<WinModalProps> = ({
   // not a raw CSS md: breakpoint — a phone in landscape with a wide viewport must not get the
   // iPad/desktop treatment just because its width happens to cross 768px.
   const isLargeScreen = useIsLargeScreen();
+  const deviceType = useDeviceType();
   const cardMaxWidthClass = isLargeScreen ? 'max-w-2xl' : 'max-w-md';
+  // iPhone/iPad (both physically-rotating devices, unlike PC web) use the full available width
+  // in portrait — no Tailwind cap left to bind, since min(innerWidth, innerHeight) already IS
+  // portrait's own width — and landscape reuses that exact same pixel width rather than
+  // stretching to landscape's own wider shape. -24 matches the backdrop's own `p-3` (12px each
+  // side), which portrait's plain `w-full` already nets out to automatically; this explicit
+  // value has to subtract it manually to land on the identical width in both orientations.
+  const cardWidthPx = deviceType !== 'pcweb' && typeof window !== 'undefined'
+    ? Math.min(window.innerWidth, window.innerHeight) - 24
+    : undefined;
   const cardPaddingClass = isLargeScreen ? 'p-6' : 'p-3';
   // Designed for older players: nothing on this page may render under 15px — several of these
   // (labelTextClass, winSubTextClass, fanHeadingClass, fanListTextClass) previously sat below
@@ -226,8 +236,12 @@ export const WinModal: React.FC<WinModalProps> = ({
     <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3">
       <div
         ref={cardRef}
-        className={`relative w-full ${cardMaxWidthClass} overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100`}
-        style={{ maxHeight: `${maxHeightPx}px`, transform: `scale(${scale})` }}
+        className={`relative w-full ${cardMaxWidthClass} overflow-y-auto overflow-x-hidden bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100`}
+        style={{
+          maxHeight: `${maxHeightPx}px`,
+          ...(cardWidthPx !== undefined ? { width: `${cardWidthPx}px` } : {}),
+          transform: `scale(${scale})`,
+        }}
       >
 
         {/* a. Both hands, one row each: exposed melds (same chow/pong/kong glow + kong tile-
