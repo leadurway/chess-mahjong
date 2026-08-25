@@ -130,12 +130,13 @@ export const ChessTile: React.FC<ChessTileProps> = ({
 
   if (!isClickable) return <div id={id}>{box}</div>;
 
+  // No y-axis movement here (on hover or while selected) — a tile's position must stay put;
+  // isSelected is conveyed entirely by activeGlow's ring above. Scale-only feedback on
+  // hover/tap doesn't shift the tile's box position the way a translateY does.
   return (
     <motion.div
       id={id}
-      animate={isSelected ? { y: [0, -4, 0] } : { y: 0 }}
-      transition={isSelected ? { repeat: Infinity, duration: 1 } : { duration: 0.15 }}
-      whileHover={{ y: isFaceDown ? -4 : -6, scale: 1.05 }}
+      whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
       className="cursor-pointer"
