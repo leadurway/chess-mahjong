@@ -155,17 +155,26 @@ export const WinModal: React.FC<WinModalProps> = ({
   const isLargeScreen = useIsLargeScreen();
   const deviceType = useDeviceType();
   const isLandscape = useIsLandscape();
-  // iPad landscape reuses iPad PORTRAIT's settings (same physical device, just rotated) rather
-  // than its own shorter/narrower landscape shape — matching how useSecondaryPageScale already
-  // locks the scale itself for 'ipad' to `[min(w,h), max(w,h)]` regardless of actual orientation.
+  // iPad landscape reuses iPad PORTRAIT's WIDTH setting (same physical device, just rotated) —
+  // not just "uncapped", but the literal same pixel size portrait would use, i.e. capped to
+  // min(innerWidth, innerHeight), which is invariant to rotation and so gives portrait and
+  // landscape the identical card width. This matches how useSecondaryPageScale already locks
+  // the scale itself for 'ipad' to `[min(w,h), max(w,h)]` regardless of actual orientation.
   // PC web isn't a rotating physical device, so it keeps its own real per-orientation shape.
   const isIpadLocked = deviceType === 'ipad';
-  // Portrait (and iPad landscape, locked to portrait) has plenty of vertical room to spare, so
-  // the card should read as large as possible: no width cap (max-w-2xl/max-w-md otherwise
-  // leaves a real unused margin on wider portrait screens like iPad/PC web, where the backdrop
-  // is comfortably wider than either cap), and a taller height ceiling below. Plain landscape
-  // (iPhone, PC web) keeps the original caps — its shorter viewport is genuinely the binding
-  // constraint there, and this is the proven-working layout.
+  // -24 matches the scroll wrapper's own `p-3` (12px each side) — portrait's width already
+  // nets out to this via plain `w-full` of that padded wrapper, so the explicit cap here needs
+  // the same subtraction to land on the exact same pixel width, not 24px wider.
+  const ipadLockedMaxWidthPx = isIpadLocked && typeof window !== 'undefined'
+    ? Math.min(window.innerWidth, window.innerHeight) - 24
+    : undefined;
+  // Plain portrait (and iPad, locked) has plenty of vertical room to spare, so the card should
+  // read as large as possible: no Tailwind width cap (max-w-2xl/max-w-md otherwise leaves a
+  // real unused margin on wider portrait screens like iPad/PC web, where the backdrop is
+  // comfortably wider than either cap) — capped instead via the explicit inline style above for
+  // iPad specifically, or left uncapped (`max-w-full`) for plain phone/PC-web portrait. Plain
+  // landscape (iPhone, PC web) keeps the original caps — its shorter viewport is genuinely the
+  // binding constraint there, and this is the proven-working layout.
   const cardMaxWidthClass = (!isLandscape || isIpadLocked) ? 'max-w-full' : isLargeScreen ? 'max-w-2xl' : 'max-w-md';
   const cardPaddingClass = isLargeScreen ? 'p-6' : 'p-3';
   // Designed for older players: nothing on this page may render under 15px — several of these
@@ -255,7 +264,11 @@ export const WinModal: React.FC<WinModalProps> = ({
       <div
         ref={cardRef}
         className={`relative w-full ${cardMaxWidthClass} overflow-y-auto bg-stone-900 border-2 border-amber-500/30 rounded-3xl ${cardPaddingClass} shadow-2xl text-stone-100 flex flex-col justify-between shrink-0`}
-        style={{ height: `${maxHeightPx}px`, transform: `scale(${scale})` }}
+        style={{
+          height: `${maxHeightPx}px`,
+          ...(ipadLockedMaxWidthPx !== undefined ? { maxWidth: `${ipadLockedMaxWidthPx}px` } : {}),
+          transform: `scale(${scale})`,
+        }}
       >
 
         {/* a. Both hands, one row each: exposed melds (same chow/pong/kong glow + kong tile-
