@@ -194,16 +194,11 @@ export const WinModal: React.FC<WinModalProps> = ({
   // (see the card's className) rather than sitting empty above/below a content-sized card.
   const cardRef = useRef<HTMLDivElement>(null);
   const { scale } = useSecondaryPageScale(cardRef);
-  // For iPad, lock the height reference to the LARGER of the two real viewport dimensions —
-  // i.e. always "portrait's" height, matching the width-cap and scale locks above — instead of
-  // the actual (shorter) landscape innerHeight. This deliberately makes the card taller than an
-  // actual iPad-landscape viewport when locked; the scroll wrapper around the card (see the
-  // return below) is what makes that reachable rather than just clipped.
-  const heightRefPx = typeof window === 'undefined'
-    ? 900
-    : isIpadLocked
-      ? Math.max(window.innerWidth, window.innerHeight)
-      : window.innerHeight;
+  // Height stays orientation-aware (the real, actual viewport height) even for iPad — only the
+  // WIDTH cap above is locked to portrait's setting. The scroll wrapper around the card (see the
+  // return below) stays in place regardless, as a general safety net for whenever the card's
+  // content genuinely needs more room than this fraction of the real viewport provides.
+  const heightRefPx = typeof window === 'undefined' ? 900 : window.innerHeight;
   const maxHeightPx = (heightRefPx * 0.96) / scale;
 
   // Measured post-mount so fireworks can steer clear of the AI/player hand rows and the fan
