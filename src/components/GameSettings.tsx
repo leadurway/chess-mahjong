@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { GameMode, Difficulty } from '../types';
 import { RuleGuide } from './RuleGuide';
 import liangLogo from '../assets/liang-logo.png';
-import { loadPlayerProfile, savePlayerProfile } from '../utils/playerProfile';
+import { loadPlayerProfile, switchPlayerProfile } from '../utils/playerProfile';
 import { useSecondaryPageScale } from '../hooks/useResponsive';
 
 interface GameSettingsProps {
@@ -18,12 +18,18 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [playerIsBanker, setPlayerIsBanker] = useState<boolean>(true);
   const [showRules, setShowRules] = useState<boolean>(false);
-  const [profile] = useState(() => loadPlayerProfile());
+  const [profile, setProfile] = useState(() => loadPlayerProfile());
   const [playerName, setPlayerName] = useState(profile.name);
 
-  const handleNameChange = (value: string) => {
-    setPlayerName(value);
-    savePlayerProfile({ name: value.trim() || '玩家', score: profile.score });
+  // Each player name keeps its own independent score (see switchPlayerProfile), so switching
+  // is only committed once the player finishes typing (blur / starting the game) rather than on
+  // every keystroke — committing mid-name would create a stray score entry for every partial
+  // name typed along the way (e.g. "王" then "王小" before reaching "王小明").
+  const commitNameChange = (value: string) => {
+    const resolved = switchPlayerProfile(value);
+    setProfile(resolved);
+    setPlayerName(resolved.name);
+    return resolved;
   };
 
   // The card is ALWAYS laid out exactly like a normal iPhone-portrait lobby (same classes,
@@ -130,7 +136,8 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
             <input
               type="text"
               value={playerName}
-              onChange={(e) => handleNameChange(e.target.value)}
+              onChange={(e) => setPlayerName(e.target.value)}
+              onBlur={(e) => commitNameChange(e.target.value)}
               maxLength={12}
               placeholder="輸入你的名稱"
               className={`w-full bg-white/10 border border-white/20 rounded-xl ${inputClass} text-white placeholder:text-white/70 focus:outline-none focus:ring-2 focus:ring-amber-400`}
@@ -232,7 +239,7 @@ export const GameSettings: React.FC<GameSettingsProps> = ({ onStartGame }) => {
         <div className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => onStartGame({ mode, difficulty, playerIsBanker, playerName: playerName.trim() || '玩家' })}
+            onClick={() => onStartGame({ mode, difficulty, playerIsBanker, playerName: commitNameChange(playerName).name })}
             className={`w-full bg-red-600 hover:bg-red-500 text-white font-serif font-extrabold ${startBtnClass} rounded-xl transition duration-200 shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300 transform active:scale-95 cursor-pointer`}
           >
             開始遊戲 (Play Game)
