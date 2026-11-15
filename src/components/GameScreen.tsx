@@ -1222,33 +1222,27 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             過
           </button>
         );
-        const allButtons = [eatBtn, pongBtn, kongBtn, selfKongBtn, passBtn, winBtn].filter(Boolean);
+        const claimButtons = [eatBtn, pongBtn, kongBtn, selfKongBtn].filter(Boolean);
+        const decisionButtons = [passBtn, winBtn].filter(Boolean);
+        const allButtons = [...claimButtons, ...decisionButtons];
+        const rowStyle = { paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' };
 
-        // Landscape is always one row. Portrait splits into (at most) 2 rows purely by count,
-        // keeping the fixed 吃/碰/槓/過/胡 order intact left-to-right then top-to-bottom: 1-2
-        // buttons stay a single row (splitting so few would waste vertical space); 3+ buttons
-        // split with the first ceil(n/2) on top and the rest below (3 → 2+1, 4 → 2+2, 5 → 3+2),
-        // rather than a fixed 2-column grid that could wrap unpredictably and get clipped.
-        if (isLandscape || allButtons.length <= 2) {
+        // Landscape is always one row. Portrait splits by ROLE, not by count: top row is the
+        // meld actions (吃/碰/槓/暗槓/補槓), bottom row is always 過/胡 — so 過 and 胡 always sit
+        // side by side in the same spot instead of moving around with the button count (the old
+        // count-based split put e.g. 碰+過 on top and a lone full-width 胡 underneath). With no
+        // meld action available (only 過/胡) it's just that one row.
+        if (isLandscape || claimButtons.length === 0) {
           return (
-            <div
-              className="px-3 py-2 flex gap-2"
-              style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
-            >
+            <div className="px-3 py-2 flex gap-2" style={rowStyle}>
               {allButtons}
             </div>
           );
         }
-        const topCount = Math.ceil(allButtons.length / 2);
-        const topRow = allButtons.slice(0, topCount);
-        const bottomRow = allButtons.slice(topCount);
         return (
-          <div
-            className="px-3 py-2 flex flex-col gap-2"
-            style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
-          >
-            <div className="flex gap-2">{topRow}</div>
-            {bottomRow.length > 0 && <div className="flex gap-2">{bottomRow}</div>}
+          <div className="px-3 py-2 flex flex-col gap-2" style={rowStyle}>
+            <div className="flex gap-2">{claimButtons}</div>
+            <div className="flex gap-2">{decisionButtons}</div>
           </div>
         );
       })()}
@@ -1494,7 +1488,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             }}
             animate={canDiscard ? { y: [0, -6, 0] } : { y: 0 }}
             transition={canDiscard ? { repeat: Infinity, duration: 1.1 } : { duration: 0.2 }}
-            className={`flex-1 ${bigBtnClass} rounded-2xl font-bold font-serif transition-colors flex items-center justify-center ${
+            className={`flex-1 ${bigBtnClass} rounded-2xl font-black font-serif transition-colors flex items-center justify-center ${
               canDiscard
                 ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
                 : 'bg-stone-800/60 text-stone-200'
@@ -1508,7 +1502,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             onClick={handlePlayerDraw}
             animate={canDraw ? { y: [0, -6, 0] } : { y: 0 }}
             transition={canDraw ? { repeat: Infinity, duration: 1.1 } : { duration: 0.2 }}
-            className={`flex-1 ${bigBtnClass} rounded-2xl font-bold font-serif transition-colors flex items-center justify-center gap-2 ${
+            className={`flex-1 ${bigBtnClass} rounded-2xl font-black font-serif transition-colors flex items-center justify-center gap-2 ${
               canDraw
                 ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
                 : 'bg-stone-800/60 text-stone-200'
