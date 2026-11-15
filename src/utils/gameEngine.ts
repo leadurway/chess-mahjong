@@ -587,6 +587,13 @@ export function calculateFans(
     }
   }
 
+  // 四對子 — the special 8-tile hand of four pairs (對子四組; no 吃碰槓, all 8 tiles concealed).
+  // Judged on its own, independent of every other category. 56/64-tile only (32-tile's 5-tile
+  // hand can't hold four pairs).
+  if (mode !== 32 && exposedMelds.length === 0 && concealedHand.length === 8 && canPartitionIntoPairs(concealedHand)) {
+    fans.push({ name: '四對子 (Four Pairs)', value: 1 });
+  }
+
   const shape = decomposeWinningShape(concealedHand, exposedMelds);
 
   // 將帥聽令 — the eye is 將 or 帥 (isPair already allows 將/帥 to pair cross-color as the
