@@ -576,11 +576,14 @@ export function calculateFans(
     }
   }
 
-  // 碰碰胡 / 二槓子 — every group is a triple, or two of the melds are kongs. 56/64-tile only.
+  // 碰碰胡 (every group is a triple) and 二槓子 (two of the melds are kongs) — judged and scored
+  // independently, so a hand meeting both gets both. 56/64-tile only.
   if (mode !== 32) {
-    const kongCount = exposedMelds.filter(m => m.type === 'kong').length;
-    if (checkAllTriples(concealedHand, exposedMelds) || kongCount >= 2) {
-      fans.push({ name: '碰碰胡/二槓子 (All Triples or Two Kongs)', value: 2 });
+    if (checkAllTriples(concealedHand, exposedMelds)) {
+      fans.push({ name: '碰碰胡 (All Triples)', value: 2 });
+    }
+    if (exposedMelds.filter(m => m.type === 'kong').length >= 2) {
+      fans.push({ name: '二槓子 (Two Kongs)', value: 2 });
     }
   }
 

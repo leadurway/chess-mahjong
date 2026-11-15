@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChessTile } from './ChessTile';
 import { Tile, Meld, GameMode } from '../types';
 import { sortHandForDisplay, getMeldDisplayTiles } from '../utils/gameEngine';
-import { BASE_PAYOUT, PER_FAN_PAYOUT, STARTING_SCORE } from '../utils/playerProfile';
+import { BASE_PAYOUT, PER_FAN_PAYOUT } from '../utils/playerProfile';
 import { IPAD_REFERENCE, useDeviceType, useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
 
 interface WinModalProps {
@@ -345,8 +345,8 @@ export const WinModal: React.FC<WinModalProps> = ({
                   <span className={`font-bold ${row.delta > 0 ? 'text-emerald-400' : row.delta < 0 ? 'text-rose-400' : 'text-stone-300'}`}>
                     {row.delta > 0 ? '+' : row.delta < 0 ? '−' : '±'}{Math.abs(row.delta).toLocaleString()}
                   </span>
-                  <span className={`font-extrabold ${row.total >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {row.total.toLocaleString()}
+                  <span className={`${fanTotalClass} text-amber-400 font-extrabold`}>
+                    {row.total.toLocaleString()} 分
                   </span>
                 </span>
               </div>
