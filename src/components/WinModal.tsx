@@ -340,14 +340,16 @@ export const WinModal: React.FC<WinModalProps> = ({
               { label: '🤖 電腦', delta: winner === null ? 0 : isPlayerWin ? -payout : payout, total: aiScore },
             ].map(row => (
               <div key={row.label} className="py-2 flex justify-between items-center gap-2">
-                <span className="text-stone-200 font-medium truncate">{row.label}</span>
-                <span className="flex items-baseline gap-3 font-mono shrink-0">
-                  <span className={`font-bold ${row.delta > 0 ? 'text-emerald-400' : row.delta < 0 ? 'text-rose-400' : 'text-stone-300'}`}>
+                {/* Name, immediately followed by this round's +/− (green/red), on the left; the
+                    running total (same style as 本局得分) on the right. */}
+                <span className="flex items-baseline gap-3 min-w-0">
+                  <span className="text-stone-200 font-medium truncate">{row.label}</span>
+                  <span className={`font-mono font-bold shrink-0 ${row.delta > 0 ? 'text-emerald-400' : row.delta < 0 ? 'text-rose-400' : 'text-stone-300'}`}>
                     {row.delta > 0 ? '+' : row.delta < 0 ? '−' : '±'}{Math.abs(row.delta).toLocaleString()}
                   </span>
-                  <span className={`${fanTotalClass} text-amber-400 font-extrabold`}>
-                    {row.total.toLocaleString()} 分
-                  </span>
+                </span>
+                <span className={`${fanTotalClass} text-amber-400 font-extrabold font-mono shrink-0`}>
+                  {row.total.toLocaleString()} 分
                 </span>
               </div>
             ))}
