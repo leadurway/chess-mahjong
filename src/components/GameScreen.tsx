@@ -973,7 +973,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   // meld/discard sizing above (not raw Tailwind md:/lg: breakpoints), because those are width-
   // only: a phone in landscape can be wider than the md breakpoint despite still being a phone,
   // and would wrongly get the "large screen" treatment if this used width alone.
-  const bigBtnClass = isLargeScreen ? 'h-24 text-3xl' : 'h-16 text-xl';
+  const bigBtnClass = isLargeScreen ? 'h-24 text-4xl' : 'h-16 text-2xl';
   const headerIconSize = isLargeScreen ? 30 : 15;
   const avatarSizeClass = isLargeScreen ? 'w-14 h-14' : 'w-8 h-8';
   // Designed for older players: nothing on this page may render under 15px. nameTextClass (the
