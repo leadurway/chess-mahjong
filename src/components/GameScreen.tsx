@@ -58,6 +58,37 @@ function maxMeldsForMode(mode: GameMode): number {
   return mode === 32 ? 1 : 2;
 }
 
+// ONE AudioContext for the whole app, reused by every sound effect. playSfx used to create a
+// brand-new AudioContext per sound and never close it — dozens per round, thousands after ~100
+// rounds. Browsers cap live AudioContexts and each one holds real audio-hardware resources, so
+// on iPhone/iPad Safari this steadily grew memory until iOS killed the tab's process, which
+// reloads the page and drops the player back to the start screen (the reported "閃退").
+let sharedAudioContext: AudioContext | null = null;
+function getSharedAudioContext(): AudioContext | null {
+  if (!sharedAudioContext) {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return null;
+    sharedAudioContext = new AudioCtx();
+  }
+  // iOS suspends contexts when the page is backgrounded or before a user gesture — resume
+  // instead of creating a new one.
+  if (sharedAudioContext.state === 'suspended') {
+    sharedAudioContext.resume().catch(() => {});
+  }
+  return sharedAudioContext;
+}
+
+// A full hand on the player's own turn only counts as a self-draw (自摸) win when it actually
+// came from a draw (normal draw or kong replacement → pendingDrawnTileId), or it's the banker's
+// untouched opening hand (天胡, possibly after self-kongs). Right after a 吃/碰 the hand is also
+// "full size", but that tile came off the opponent's discard — it must be discarded, not
+// declared as 自摸 (which would also wrongly score 自摸, and even 地胡 on the first turn).
+function canPlayerSelfDrawWin(p: PlayerState): boolean {
+  const fromDraw = !!p.pendingDrawnTileId;
+  const bankerOpeningHand = p.isBanker && !p.hasDiscarded && p.melds.every(m => m.discardSource === 'self');
+  return (fromDraw || bankerOpeningHand) && isWinningHand(p.hand, p.melds);
+}
+
 export const GameScreen: React.FC<GameScreenProps> = ({
   mode,
   difficulty,
@@ -223,9 +254,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const playSfx = (type: 'draw' | 'discard' | 'meld' | 'win' | 'lose') => {
     if (!soundEnabled) return;
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+      const ctx = getSharedAudioContext();
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -299,6 +329,63 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       : getAIDiscard(hand);
   };
 
+  // AI self-kong (暗槓/補槓) opportunity on its own turn, while holding a full hand (right after
+  // drawing, or the banker's opening hand). A brand-new concealed kong (not an upgrade) adds a
+  // meld, so it must respect the mode's meld cap; either way, a kong always needs a replacement
+  // tile, so it's only offered while the wall still has one to give — otherwise chooseAIDiscard
+  // would end up discarding from a hand that's permanently 1 tile short, desyncing
+  // expectedIdleSize/expectedStartSize for the rest of the round and stalling handleAILoops
+  // entirely (see maxMeldsForMode). Returns true if it kong'd (and already committed state).
+  // `wall` is mutated (replacement tile popped) — callers pass their own working copy.
+  const tryAISelfKong = (aiHand: Tile[], wall: Tile[]): boolean => {
+    const aiMelds = gameState.ai.melds;
+    const aiSelfKongOptions = getSelfKongOptions(aiHand, aiMelds)
+      .filter(opt => opt.isUpgrade || aiMelds.length < maxMeldsForMode(gameState.mode));
+    if (aiSelfKongOptions.length === 0 || wall.length === 0) return false;
+    if (!(gameState.difficulty === 'hard' || Math.random() > 0.5)) return false;
+
+    const option = aiSelfKongOptions[0];
+    const replacementTile = wall.pop();
+    const handAfterKong = aiHand.filter(t => !option.tiles.some(c => c.id === t.id));
+    const finalAiHand = replacementTile ? [...handAfterKong, replacementTile] : handAfterKong;
+    const aiMeldsAfterKong = option.isUpgrade
+      ? aiMelds.map((m, idx) => idx === option.upgradeMeldIndex ? { ...m, type: 'kong' as const, tiles: option.tiles } : m)
+      : [...aiMelds, { type: 'kong' as const, tiles: option.tiles, discardSource: 'self' as const }];
+    const kongLabel = option.isUpgrade ? '補槓' : '暗槓';
+    playSfx('meld');
+
+    // The replacement tile can complete the hand outright (kong-then-self-draw win, 槓上開花).
+    // triggerWin reads the winner's melds off gameState, so pass the post-kong melds explicitly.
+    if (isWinningHand(finalAiHand, aiMeldsAfterKong)) {
+      triggerWin('ai', replacementTile ?? null, true, wall, finalAiHand, true, aiMeldsAfterKong);
+      return true;
+    }
+
+    const discarded = chooseAIDiscard(finalAiHand, aiMeldsAfterKong.length);
+    const remainingHand = finalAiHand.filter(t => t.id !== discarded.id);
+    playSfx('discard');
+
+    const kongGameState: GameState = {
+      ...gameState,
+      wall,
+      ai: { ...gameState.ai, hand: remainingHand, melds: aiMeldsAfterKong, discards: [...gameState.ai.discards, discarded], hasDiscarded: true },
+      turn: 'player',
+      phase: 'waitingDiscard',
+      lastDiscard: discarded,
+      lastDiscardSender: 'ai',
+      logs: [...gameState.logs, `😲 對手喊「${kongLabel}！」，亮出 [${option.tiles.map(t => t.character).join('')}]，並打出了 ${discarded.color === 'red' ? '紅' : '黑'}${discarded.character}`],
+    };
+    const kongInterrupts = checkForPlayerInterrupts(discarded, kongGameState);
+    if (kongInterrupts.canWin || kongInterrupts.canPong || kongInterrupts.canEat || kongInterrupts.canKong) {
+      kongGameState.phase = 'showMeldSelect';
+      kongGameState.logs.push(`⚠️ 你可以對這張打牌進行吃、碰或胡牌！`);
+    } else {
+      kongGameState.phase = 'drawing';
+    }
+    setGameState(kongGameState);
+    return true;
+  };
+
   const handleAILoops = () => {
     const aiHand = [...gameState.ai.hand];
     const aiMelds = gameState.ai.melds;
@@ -319,7 +406,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const newGameState: GameState = {
         ...gameState,
         aiDiscardOnly: false,
-        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded] },
+        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded], hasDiscarded: true },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: discarded,
@@ -350,55 +437,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         return;
       }
 
-      // AI self-kong (暗槓/補槓) opportunity right after drawing. A brand-new concealed kong
-      // (not an upgrade) adds a meld, so it must respect the mode's meld cap; either way, a
-      // kong always needs a replacement tile, so it's only offered while the wall still has
-      // one to give — otherwise chooseAIDiscard below would end up discarding from a hand
-      // that's permanently 1 tile short, desyncing expectedIdleSize/expectedStartSize for the
-      // rest of the round and stalling handleAILoops entirely (see maxMeldsForMode).
-      const aiSelfKongOptions = getSelfKongOptions(aiHand, aiMelds)
-        .filter(opt => opt.isUpgrade || aiMelds.length < maxMeldsForMode(gameState.mode));
-      if (aiSelfKongOptions.length > 0 && updatedWall.length > 0 && (gameState.difficulty === 'hard' || Math.random() > 0.5)) {
-        const option = aiSelfKongOptions[0];
-        const replacementTile = updatedWall.pop();
-        const handAfterKong = aiHand.filter(t => !option.tiles.some(c => c.id === t.id));
-        const finalAiHand = replacementTile ? [...handAfterKong, replacementTile] : handAfterKong;
-        const aiMeldsAfterKong = option.isUpgrade
-          ? aiMelds.map((m, idx) => idx === option.upgradeMeldIndex ? { ...m, type: 'kong' as const, tiles: option.tiles } : m)
-          : [...aiMelds, { type: 'kong' as const, tiles: option.tiles, discardSource: 'self' as const }];
-        const kongLabel = option.isUpgrade ? '補槓' : '暗槓';
-        playSfx('meld');
-
-        // The replacement tile can complete the hand outright (kong-then-self-draw win, 槓上開花).
-        if (isWinningHand(finalAiHand, aiMeldsAfterKong)) {
-          triggerWin('ai', replacementTile ?? null, true, updatedWall, finalAiHand, true);
-          return;
-        }
-
-        const discarded = chooseAIDiscard(finalAiHand, aiMeldsAfterKong.length);
-        const remainingHand = finalAiHand.filter(t => t.id !== discarded.id);
-        playSfx('discard');
-
-        const kongGameState: GameState = {
-          ...gameState,
-          wall: updatedWall,
-          ai: { ...gameState.ai, hand: remainingHand, melds: aiMeldsAfterKong, discards: [...gameState.ai.discards, discarded] },
-          turn: 'player',
-          phase: 'waitingDiscard',
-          lastDiscard: discarded,
-          lastDiscardSender: 'ai',
-          logs: [...gameState.logs, `😲 對手喊「${kongLabel}！」，亮出 [${option.tiles.map(t => t.character).join('')}]，並打出了 ${discarded.color === 'red' ? '紅' : '黑'}${discarded.character}`],
-        };
-        const kongInterrupts = checkForPlayerInterrupts(discarded, kongGameState);
-        if (kongInterrupts.canWin || kongInterrupts.canPong || kongInterrupts.canEat || kongInterrupts.canKong) {
-          kongGameState.phase = 'showMeldSelect';
-          kongGameState.logs.push(`⚠️ 你可以對這張打牌進行吃、碰或胡牌！`);
-        } else {
-          kongGameState.phase = 'drawing';
-        }
-        setGameState(kongGameState);
-        return;
-      }
+      if (tryAISelfKong(aiHand, updatedWall)) return;
 
       const discarded = chooseAIDiscard(aiHand, aiMelds.length);
       const remainingHand = aiHand.filter(t => t.id !== discarded.id);
@@ -407,7 +446,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       const newGameState: GameState = {
         ...gameState,
         wall: updatedWall,
-        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded] },
+        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded], hasDiscarded: true },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: discarded,
@@ -425,17 +464,21 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       setGameState(newGameState);
 
     } else if (aiHand.length === expectedStartSize) {
+      // Only reached with the banker's untouched opening hand (post-claim discards go through
+      // aiDiscardOnly above) — winning here is 天胡, and so is winning off a kong declared from
+      // that opening hand before the first discard.
       if (isWinningHand(aiHand, aiMelds)) {
         triggerWin('ai', null, true, gameState.wall, aiHand);
         return;
       }
+      if (tryAISelfKong(aiHand, [...gameState.wall])) return;
       const discarded = chooseAIDiscard(aiHand, aiMelds.length);
       const remainingHand = aiHand.filter(t => t.id !== discarded.id);
       playSfx('discard');
 
       const newGameState: GameState = {
         ...gameState,
-        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded] },
+        ai: { ...gameState.ai, hand: remainingHand, discards: [...gameState.ai.discards, discarded], hasDiscarded: true },
         turn: 'player',
         phase: 'waitingDiscard',
         lastDiscard: discarded,
@@ -491,7 +534,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
 
     const nextGameState: GameState = {
       ...gameState,
-      player: { ...gameState.player, hand: updatedHand, discards: updatedDiscards, pendingDrawnTileId: null, pendingDrawWasKong: false },
+      player: { ...gameState.player, hand: updatedHand, discards: updatedDiscards, pendingDrawnTileId: null, pendingDrawWasKong: false, hasDiscarded: true },
       turn: 'ai',
       phase: 'aiThinking',
       lastDiscard: tileToDiscard,
@@ -598,7 +641,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       logs: [...prev.logs, '🏁 牌牆已抽光！本局平手結尾 (流局)。'],
       winInfo: {
         winner: null, winningTile: null, isSelfDraw: false,
-        fans: [], totalFans: 0,
+        fans: [], totalFans: 0, payout: 0,
         handSnapshot: prev.player.hand,
         meldsSnapshot: prev.player.melds,
         playerConcealedTiles: prev.player.hand,
@@ -778,8 +821,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     const targetIdleSize = targetWinSize - 1;
 
     if (playerHand.length === targetWinSize) {
-      if (isWinningHand(playerHand, playerMelds)) {
-        const winningTile = gameState.lastDiscardSender === 'player' ? null : playerHand[playerHand.length - 1];
+      if (canPlayerSelfDrawWin(gameState.player)) {
+        // The just-drawn tile (or kong replacement) is the winning tile; a 天胡 off the banker's
+        // untouched opening hand has no single winning tile.
+        const winningTile = playerHand.find(t => t.id === gameState.player.pendingDrawnTileId) ?? null;
         triggerWin('player', winningTile, true, gameState.wall, playerHand, gameState.player.pendingDrawWasKong ?? false);
       } else {
         addLog('⚠️ 提示：你目前的手牌尚未形成胡牌聽牌組合喔！');
@@ -800,18 +845,23 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     isSelfDraw: boolean,
     updatedWall: Tile[],
     finalConcealedHand: Tile[],
-    isKongReplacement: boolean = false
+    isKongReplacement: boolean = false,
+    winnerMeldsOverride?: Meld[]
   ) => {
     const isPlayer = winner === 'player';
     playSfx(isPlayer ? 'win' : 'lose');
     const winnerState = isPlayer ? gameState.player : gameState.ai;
-    // 天胡/地胡 both require the WINNER to still be on their very first turn (never having
-    // discarded). Requiring BOTH sides to have zero discards is wrong for 地胡 specifically:
-    // by the time the idle side gets their first draw, the dealer has necessarily already
-    // made their opening discard, so that stricter check could never be true and 地胡 could
-    // never actually fire. Each side's own discard count is what matters.
-    const isFirstMove = winnerState.discards.length === 0;
-    const fansCalculated = calculateFans(finalConcealedHand, winnerState.melds, {
+    const winnerMelds = winnerMeldsOverride ?? winnerState.melds;
+    // 天胡 (banker) / 地胡 (idle): the winner is still on their very first turn —
+    //   • never discarded yet (hasDiscarded, NOT discards.length — a claimed discard is removed
+    //     from the pile, which would otherwise make the count fall back to 0), and
+    //   • every meld so far is self-declared (暗槓/補槓 within that first turn still counts;
+    //     a 吃/碰/明槓 off the opponent's discard means it's no longer their untouched first turn).
+    // Only the WINNER's own state matters: by the idle side's first draw the dealer has already
+    // made their opening discard, so requiring both sides to be untouched would block 地胡.
+    // The isSelfDraw requirement (a win off a discard is never 天胡/地胡) lives in calculateFans.
+    const isFirstMove = !winnerState.hasDiscarded && winnerMelds.every(m => m.discardSource === 'self');
+    const fansCalculated = calculateFans(finalConcealedHand, winnerMelds, {
       isSelfDraw,
       isFirstMove,
       isWinnerBanker: winnerState.isBanker,
@@ -822,7 +872,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     });
     const totalFans = fansCalculated.reduce((sum, f) => sum + f.value, 0);
     const payout = calculatePayout(totalFans);
-    const winnerMelds = winnerState.melds;
 
     setGameState(prev => {
       const loserConcealedHand = isPlayer ? prev.ai.hand : prev.player.hand;
@@ -835,8 +884,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         ai: { ...prev.ai, score: prev.ai.score + (isPlayer ? -payout : payout) },
         logs: [...prev.logs, `🎉 ${isPlayer ? '玩家' : '對手 AI'} 宣告胡牌 (${isSelfDraw ? '自摸' : '榮胡'})！共 ${totalFans} 台，${isPlayer ? '贏' : '輸'} ${payout} 分！`],
         winInfo: {
-          winner, winningTile, isSelfDraw, fans: fansCalculated, totalFans,
-          handSnapshot: finalConcealedHand, meldsSnapshot: winnerState.melds,
+          winner, winningTile, isSelfDraw, fans: fansCalculated, totalFans, payout,
+          handSnapshot: finalConcealedHand, meldsSnapshot: winnerMelds,
           playerConcealedTiles: isPlayer ? finalConcealedHand : loserConcealedHand,
           aiConcealedTiles: isPlayer ? loserConcealedHand : finalConcealedHand,
           playerMelds: isPlayer ? winnerMelds : loserMelds,
@@ -888,8 +937,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     : { canWin: false, canPong: false, canEat: false, canKong: false };
 
   const expectedWinSize = (gameState.mode === 32 ? 5 : 8) - gameState.player.melds.length * 3;
-  const isSelfDrawWinAvailable = gameState.player.hand.length === expectedWinSize &&
-    isWinningHand(gameState.player.hand, gameState.player.melds);
+  const isSelfDrawWinAvailable = gameState.turn === 'player' && gameState.phase === 'waitingDiscard' &&
+    gameState.player.hand.length === expectedWinSize && canPlayerSelfDrawWin(gameState.player);
 
   const selfKongOptions = gameState.turn === 'player' && gameState.phase === 'waitingDiscard' && gameState.wall.length > 0
     ? getSelfKongOptions(gameState.player.hand, gameState.player.melds)
@@ -1592,6 +1641,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           playerMelds={gameState.winInfo.playerMelds}
           aiMelds={gameState.winInfo.aiMelds}
           mode={gameState.mode}
+          payout={gameState.winInfo.payout}
+          playerName={playerName}
+          playerScore={gameState.player.score}
+          aiScore={gameState.ai.score}
           onRestart={handleReplay}
         />
       )}

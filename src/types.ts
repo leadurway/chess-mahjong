@@ -28,6 +28,11 @@ export interface PlayerState {
   isBanker: boolean;
   pendingDrawnTileId?: string | null; // most recently drawn tile, pinned at the end of the hand display until discarded
   pendingDrawWasKong?: boolean; // the pending drawn tile was a kong's replacement draw (槓上開花 eligibility)
+  // Set the moment this side discards for the first time and never cleared for the rest of the
+  // round. `discards.length` can't be used for this — a discard claimed by the opponent (吃/碰/
+  // 槓) is removed from the pile, so the count could fall back to 0 and falsely re-qualify a
+  // later self-draw as 天胡/地胡.
+  hasDiscarded?: boolean;
 }
 
 export interface GameState {
@@ -50,6 +55,7 @@ export interface GameState {
     isSelfDraw: boolean;
     fans: Array<{ name: string; value: number }>;
     totalFans: number;
+    payout: number; // points the winner took from the loser this round (0 for 流局)
     handSnapshot: Tile[];
     meldsSnapshot: Meld[];
     // Concealed-hand tiles and exposed melds are kept separate (rather than flattened together)

@@ -218,8 +218,8 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
                 <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>自摸</td><td className={`${tableCellPadClass} text-amber-500`}>2 台</td><td className={tableCellPadClass}>自己摸進最後一張胡牌棋子。</td></tr>
                 <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>將帥聽令</td><td className={`${tableCellPadClass} text-amber-500`}>2 台</td><td className={tableCellPadClass}>胡牌時的眼睛（對子）為「將」或「帥」。</td></tr>
                 <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>五兵合縱／五卒連橫</td><td className={`${tableCellPadClass} text-amber-500`}>5 台</td><td className={tableCellPadClass}>手牌直接集齊 5 張同色的「兵」或「卒」（無視面子結構直接胡牌）。</td></tr>
-                <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>天胡</td><td className={`${tableCellPadClass} text-amber-500`}>6 台</td><td className={tableCellPadClass}>莊家起手配牌即完成胡牌。</td></tr>
-                <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>地胡</td><td className={`${tableCellPadClass} text-amber-500`}>6 台</td><td className={tableCellPadClass}>閒家在第一巡摸進第一張棋子時即自摸胡牌。</td></tr>
+                <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>天胡</td><td className={`${tableCellPadClass} text-amber-500`}>6 台</td><td className={tableCellPadClass}>莊家配牌後、尚未打出第一張牌前，手牌已完成胡牌（含起手開槓補牌後胡牌）。</td></tr>
+                <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>地胡</td><td className={`${tableCellPadClass} text-amber-500`}>6 台</td><td className={tableCellPadClass}>閒家配牌後第一次摸牌即自摸胡牌（含第一次摸牌後開槓補牌胡牌）；第一次摸牌前有吃碰則不算。</td></tr>
               </tbody>
             </table>
           </div>
@@ -249,7 +249,7 @@ export const RuleGuide: React.FC<RuleGuideProps> = ({ onClose }) => {
                 <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>雙龍抱／一條龍</td><td className={`${tableCellPadClass} text-amber-500`}>4 台</td><td className={`${tableCellPadClass} text-amber-500`}>4 台</td><td className={tableCellPadClass}>兩組面子為完全相同的順子；或將士象＋車馬包（或帥仕相＋俥傌炮）全齊。</td></tr>
                 <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>五兵合縱／五卒連橫</td><td className={`${tableCellPadClass} text-stone-200`}>－</td><td className={`${tableCellPadClass} text-amber-500`}>2 台</td><td className={tableCellPadClass}>手牌中擁有 5～7 張同色的兵或卒（一組面子加眼睛湊成）。</td></tr>
                 <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>八家將（極限牌型）</td><td className={`${tableCellPadClass} text-stone-200`}>－</td><td className={`${tableCellPadClass} text-amber-500`}>8 台</td><td className={tableCellPadClass}>集齊 8 張同色的兵或卒（僅 64 子雙副棋型可能出現）。</td></tr>
-                <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>天胡／地胡</td><td className={`${tableCellPadClass} text-amber-500`}>8 台</td><td className={`${tableCellPadClass} text-amber-500`}>8 台</td><td className={tableCellPadClass}>起手配牌即完成胡牌，或閒家第一巡摸牌自摸。</td></tr>
+                <tr><td className={`${tableCellPadClass} font-semibold text-stone-200`}>天胡／地胡</td><td className={`${tableCellPadClass} text-amber-500`}>8 台</td><td className={`${tableCellPadClass} text-amber-500`}>8 台</td><td className={tableCellPadClass}>天胡：莊家尚未打出第一張牌前即胡牌；地胡：閒家第一次摸牌即自摸。皆含第一巡開槓補牌後胡牌。</td></tr>
               </tbody>
             </table>
           </div>

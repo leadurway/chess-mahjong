@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChessTile } from './ChessTile';
 import { Tile, Meld, GameMode } from '../types';
 import { sortHandForDisplay, getMeldDisplayTiles } from '../utils/gameEngine';
+import { BASE_PAYOUT, PER_FAN_PAYOUT, STARTING_SCORE } from '../utils/playerProfile';
 import { IPAD_REFERENCE, useDeviceType, useIsLargeScreen, useSecondaryPageScale } from '../hooks/useResponsive';
 
 interface WinModalProps {
@@ -15,6 +16,10 @@ interface WinModalProps {
   playerMelds: Meld[];
   aiMelds: Meld[];
   mode: GameMode;
+  payout: number; // points moved from loser to winner this round (0 for 流局)
+  playerName: string;
+  playerScore: number; // running totals AFTER this round's payout
+  aiScore: number;
   onRestart: () => void;
 }
 
@@ -145,6 +150,10 @@ export const WinModal: React.FC<WinModalProps> = ({
   playerMelds,
   aiMelds,
   mode,
+  payout,
+  playerName,
+  playerScore,
+  aiScore,
   onRestart,
 }) => {
   const isPlayerWin = winner === 'player';
@@ -314,7 +323,38 @@ export const WinModal: React.FC<WinModalProps> = ({
           </div>
         </div>
 
-        {/* d. Continue button — shown immediately alongside the win info, height reduced to
+        {/* d. This round's score total and both sides' running score */}
+        <div className={`bg-stone-850/60 rounded-2xl ${fanBoxPaddingClass} border border-stone-800 mb-4`}>
+          <h3 className={`${fanHeadingClass} font-semibold text-amber-500 mb-2 font-serif flex justify-between items-center`}>
+            <span>💰 本局得分</span>
+            <span className={`${fanTotalClass} text-amber-400 font-extrabold font-mono`}>{payout.toLocaleString()} 分</span>
+          </h3>
+          {winner !== null && (
+            <div className={`${fanListTextClass} text-stone-300 font-mono mb-2`}>
+              底 {BASE_PAYOUT} ＋ {totalFans} 台 × {PER_FAN_PAYOUT} ＝ {payout.toLocaleString()} 分
+            </div>
+          )}
+          <div className={`divide-y divide-stone-800 ${fanListTextClass}`}>
+            {[
+              { label: `👤 ${playerName}`, delta: winner === null ? 0 : isPlayerWin ? payout : -payout, total: playerScore },
+              { label: '🤖 電腦', delta: winner === null ? 0 : isPlayerWin ? -payout : payout, total: aiScore },
+            ].map(row => (
+              <div key={row.label} className="py-2 flex justify-between items-center gap-2">
+                <span className="text-stone-200 font-medium truncate">{row.label}</span>
+                <span className="flex items-baseline gap-3 font-mono shrink-0">
+                  <span className={`font-bold ${row.delta > 0 ? 'text-emerald-400' : row.delta < 0 ? 'text-rose-400' : 'text-stone-300'}`}>
+                    {row.delta > 0 ? '+' : row.delta < 0 ? '−' : '±'}{Math.abs(row.delta).toLocaleString()}
+                  </span>
+                  <span className={`font-extrabold ${row.total >= STARTING_SCORE ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {row.total.toLocaleString()}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* e. Continue button — shown immediately alongside the win info, height reduced to
             60% to match the message box */}
         <button
           onClick={onRestart}
