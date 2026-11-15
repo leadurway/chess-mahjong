@@ -1219,7 +1219,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             }}
             className={`${btnClass} bg-stone-600 text-white shadow-[0_0_10px_2px_rgba(0,0,0,0.4)] ring-2 ring-stone-400`}
           >
-            過
+            過牌
           </button>
         );
         const allButtons = [eatBtn, pongBtn, kongBtn, selfKongBtn, passBtn, winBtn].filter(Boolean);
@@ -1494,7 +1494,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             }}
             animate={canDiscard ? { y: [0, -6, 0] } : { y: 0 }}
             transition={canDiscard ? { repeat: Infinity, duration: 1.1 } : { duration: 0.2 }}
-            className={`flex-1 ${bigBtnClass} rounded-2xl font-bold font-serif transition-colors flex items-center justify-center ${
+            className={`flex-1 ${bigBtnClass} rounded-2xl font-black font-serif transition-colors flex items-center justify-center ${
               canDiscard
                 ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
                 : 'bg-stone-800/60 text-stone-200'
@@ -1508,7 +1508,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             onClick={handlePlayerDraw}
             animate={canDraw ? { y: [0, -6, 0] } : { y: 0 }}
             transition={canDraw ? { repeat: Infinity, duration: 1.1 } : { duration: 0.2 }}
-            className={`flex-1 ${bigBtnClass} rounded-2xl font-bold font-serif transition-colors flex items-center justify-center gap-2 ${
+            className={`flex-1 ${bigBtnClass} rounded-2xl font-black font-serif transition-colors flex items-center justify-center gap-2 ${
               canDraw
                 ? 'bg-red-600 text-white shadow-[0_0_20px_6px_rgba(220,38,38,0.55)] ring-2 ring-red-300'
                 : 'bg-stone-800/60 text-stone-200'
