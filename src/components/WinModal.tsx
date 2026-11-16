@@ -20,6 +20,8 @@ interface WinModalProps {
   playerName: string;
   playerScore: number; // running totals AFTER this round's payout
   aiScore: number;
+  playerIsBanker: boolean; // who was banker for the round just finished
+  dealerStreak: number; // that banker's consecutive rounds held (1 = 起莊, no 連莊 yet)
   onRestart: () => void;
 }
 
@@ -154,9 +156,13 @@ export const WinModal: React.FC<WinModalProps> = ({
   playerName,
   playerScore,
   aiScore,
+  playerIsBanker,
+  dealerStreak,
   onRestart,
 }) => {
   const isPlayerWin = winner === 'player';
+  const playerDelta = winner === null ? 0 : isPlayerWin ? payout : -payout;
+  const playerDeltaText = `${playerDelta > 0 ? '+' : playerDelta < 0 ? '−' : '±'}${Math.abs(playerDelta).toLocaleString()}`;
 
   // Same device-based classification used everywhere else (App.tsx's DeviceTypeProvider),
   // not a raw CSS md: breakpoint — a phone in landscape with a wide viewport must not get the
@@ -327,7 +333,8 @@ export const WinModal: React.FC<WinModalProps> = ({
         <div className={`bg-stone-850/60 rounded-2xl ${fanBoxPaddingClass} border border-stone-800 mb-4`}>
           <h3 className={`${fanHeadingClass} font-semibold text-amber-500 mb-2 font-serif flex justify-between items-center`}>
             <span>💰 本局得分</span>
-            <span className={`${fanTotalClass} text-amber-400 font-extrabold font-mono`}>{payout.toLocaleString()} 分</span>
+            {/* Shown from the player's side: + when the player won this round, − when they lost. */}
+            <span className={`${fanTotalClass} text-amber-400 font-extrabold font-mono`}>{playerDeltaText} 分</span>
           </h3>
           {winner !== null && (
             <div className={`${fanListTextClass} text-stone-300 font-mono mb-2`}>
@@ -336,17 +343,19 @@ export const WinModal: React.FC<WinModalProps> = ({
           )}
           <div className={`divide-y divide-stone-800 ${fanListTextClass}`}>
             {[
-              { label: `👤 ${playerName}`, delta: winner === null ? 0 : isPlayerWin ? payout : -payout, total: playerScore },
-              { label: '🤖 電腦', delta: winner === null ? 0 : isPlayerWin ? -payout : payout, total: aiScore },
+              { label: `👤 ${playerName}`, isBanker: playerIsBanker, total: playerScore },
+              { label: '🤖 電腦', isBanker: !playerIsBanker, total: aiScore },
             ].map(row => (
               <div key={row.label} className="py-2 flex justify-between items-center gap-2">
-                {/* Name, immediately followed by this round's +/− (green/red), on the left; the
-                    running total (same style as 本局得分) on the right. */}
+                {/* Name, followed by the banker / 連莊 tag (same wording as the game screen) on the
+                    left; the running total (same style as 本局得分) on the right. */}
                 <span className="flex items-baseline gap-3 min-w-0">
                   <span className="text-stone-200 font-medium truncate">{row.label}</span>
-                  <span className={`font-mono font-bold shrink-0 ${row.delta > 0 ? 'text-emerald-400' : row.delta < 0 ? 'text-rose-400' : 'text-stone-300'}`}>
-                    {row.delta > 0 ? '+' : row.delta < 0 ? '−' : '±'}{Math.abs(row.delta).toLocaleString()}
-                  </span>
+                  {row.isBanker && (
+                    <span className="text-amber-300 font-mono whitespace-nowrap shrink-0">
+                      👑{dealerStreak > 1 ? `莊連${dealerStreak - 1}` : '莊家'}
+                    </span>
+                  )}
                 </span>
                 <span className={`${fanTotalClass} text-amber-400 font-extrabold font-mono shrink-0`}>
                   {row.total.toLocaleString()} 分

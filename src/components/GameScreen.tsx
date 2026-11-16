@@ -1645,6 +1645,8 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           playerName={playerName}
           playerScore={gameState.player.score}
           aiScore={gameState.ai.score}
+          playerIsBanker={gameState.player.isBanker}
+          dealerStreak={gameState.dealerStreak}
           onRestart={handleReplay}
         />
       )}
